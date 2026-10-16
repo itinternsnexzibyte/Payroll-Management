@@ -20,6 +20,12 @@ export const PERMISSIONS = {
   'payslips.generate': 'Generate and download payslips',
   'reports.view': 'View and export payroll reports',
   'knowledge.manage': 'Edit the knowledge & handover centre and the monthly checklist',
+  'leave.view': 'View leave requests and balances',
+  'leave.manage': 'Record leave requests for employees and manage leave types and allowances',
+  'leave.approve': 'Approve or reject leave requests',
+  'loans.manage': 'Record and close loans and salary advances',
+  'bonuses.manage': 'Propose bonuses and incentives (approval needs Approve payroll)',
+  'self.service': 'Employee self-service: own payslips, own details and own leave requests',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -36,7 +42,13 @@ export const ROLE_DEFAULTS: Record<string, { name: string; description: string; 
     // Starting matrix from the specification. "Create/edit employees", "change salary" and
     // "approve/finalise" are pending the client's decision; grant them via Roles if confirmed.
     description: 'Enters monthly inputs, calculates payroll, reviews results, generates payslips and reports.',
-    permissions: ['employees.view', 'salary.view', 'payroll.view', 'payroll.view_amounts', 'payroll.input', 'payroll.calculate', 'payslips.generate', 'reports.view'],
+    permissions: ['employees.view', 'salary.view', 'payroll.view', 'payroll.view_amounts', 'payroll.input', 'payroll.calculate', 'payslips.generate', 'reports.view', 'leave.view', 'leave.manage', 'loans.manage', 'bonuses.manage'],
+    enabledByDefault: true,
+  },
+  EMPLOYEE: {
+    name: 'Employee',
+    description: 'Employee self-service: sees only their own payslips and details, and requests their own leave. The account must be linked to an employee record.',
+    permissions: ['self.service'],
     enabledByDefault: true,
   },
   VIEWER: {

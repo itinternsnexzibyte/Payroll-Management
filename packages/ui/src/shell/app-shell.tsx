@@ -9,7 +9,7 @@ import { cn } from '../lib/format';
 import { Spinner } from '../components/primitives';
 import { EmptyState } from '../components/data';
 import { AmbientBackground } from '../components/effects';
-import { useAuth } from './auth';
+import { useAuth, type Me } from './auth';
 
 export interface NavItem {
   label: string;
@@ -18,6 +18,8 @@ export interface NavItem {
   /** Shown when the user has any of these permissions (omit = everyone). */
   permission?: string | string[];
   section?: string;
+  /** Optional extra visibility check on the signed-in user (e.g. a linked employee record). */
+  when?: (user: Me) => boolean;
 }
 
 interface Brand {
@@ -138,7 +140,7 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
   if (loading || !user) return <Spinner label="Loading your workspace…" className="min-h-screen" />;
   if (user.mustChangePassword && pathname !== '/change-password') return <Spinner className="min-h-screen" />;
 
-  const visible = nav.filter((n) => !n.permission || canAny(...(Array.isArray(n.permission) ? n.permission : [n.permission])));
+  const visible = nav.filter((n) => (!n.permission || canAny(...(Array.isArray(n.permission) ? n.permission : [n.permission]))) && (!n.when || n.when(user)));
   // Only the most specific matching item is highlighted (e.g. /employees/import over /employees).
   const matches = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/'));
   const activeHref = visible.filter((n) => matches(n.href)).sort((a, b) => b.href.length - a.href.length)[0]?.href;

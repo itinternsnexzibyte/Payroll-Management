@@ -57,6 +57,9 @@
 | **Payroll alerts** *(change request A)* | Configurable rules against earlier finalised months — net and component changes, unusual / first-time / repeated monthly amounts, possible duplicate employees — each with the numbers behind it, a review outcome and an append-only history |
 | **Reconciliation** *(change request B)* | Compare any two calculated months by employee and component; absolute and % differences; explain as *expected*, *discrepancy* or *resolved*; PDF/XLSX export |
 | **Knowledge centre** *(change request F)* | Versioned procedures, component notes, business rules and error fixes with owners and review dates; undocumented items flagged; a monthly checklist per run |
+| **Leave, advances, bonuses** | Leave types, requests, approvals and balances; loans and salary advances with monthly instalments and recovery tracking; bonuses and incentives approved by a second person. Approved amounts fill mapped payroll inputs (no formulas invented) |
+| **Self-service and email** | Employee accounts linked to an employee record see only their own payslips, details and leave; email notifications for approvals, payslips and leave decisions (no amounts in emails) |
+| **Inputs and register** | Monthly input template and CSV/XLSX import (attendance, unpaid leave, working days); monthly payroll register with every component per employee |
 | **Access** | *Sign in as User* or *as Administrator* (checked on the server), lockout after repeated failures, self-service sign-up with an emailed 6-digit code as a User or as an Administrator request that an existing Administrator approves, roles with configurable permissions (Administrator, Payroll User, optional Viewer), append-only audit log |
 
 Change requests A, B and F are not in the original specification and await approval through the change-request process — see [docs/change-requests.md](docs/change-requests.md).
@@ -271,6 +274,8 @@ Full details: [docs/security.md](docs/security.md). No external security audit o
 | ✅ Implemented | Employees, import/export, versioned salary, monthly payroll lifecycle, payslips, reports, RBAC, audit log, email-verified sign-up |
 | ✅ Implemented *(awaiting change-request approval)* | Payroll alerts (A), reconciliation (B), knowledge centre (F) |
 | ⏳ Blocked on client inputs | Client formulas and rounding from the workbook · reconciliation tests against real sample months · client-approved payslip and report layouts · agreed alert thresholds · final role matrix |
+| ✅ Implemented *(module list)* | Leave management, employee self-service, loans and advances, bonuses and incentives, email notifications, attendance file import, payroll register — see [docs/modules.md](docs/modules.md) |
+| ⛔ Blocked on client / compliance | Statutory payroll (PF, ESI, TDS) until rules are verified · bank salary export until the bank format and bank-detail storage are approved · live attendance sync until the attendance app's interface is known |
 | 🗓️ Planned engineering | Build and smoke-test the Docker images · production deployment and backup schedule |
 | 💡 Proposed, not approved | Scenario simulator (C) · employee document centre (D) · AI payroll assistant (E) · operations and recovery centre (G) — see [docs/feature-gap-analysis.md](docs/feature-gap-analysis.md) |
 | 🚫 Out of scope | Statutory payroll (PF, ESI, TDS, professional tax) unless confirmed in writing · attendance capture · mobile apps |
@@ -282,7 +287,7 @@ Full details: [docs/security.md](docs/security.md). No external security audit o
 | Suite | Command | Last recorded result |
 |---|---|---|
 | Shared core unit tests | `npm run test -w @nexzi/server-core` | ✅ 9 / 9 (16 Oct 2026) |
-| API unit + integration (real PostgreSQL) | `npm run test -w @nexzi/payroll-api` | ✅ 103 / 103 (16 Oct 2026) |
+| API unit + integration (real PostgreSQL) | `npm run test -w @nexzi/payroll-api` | ✅ 118 / 118 (16 Oct 2026) |
 | Both of the above | `npm test` | |
 | Browser end-to-end (Playwright) | `npm run test:e2e` | Payroll and sign-up scenarios exist; not re-run after the latest changes |
 | Lint and types | `npm run lint` · `npm run typecheck` | ✅ clean (16 Oct 2026) |
@@ -303,7 +308,7 @@ Integration tests need PostgreSQL with the `payroll_test` database (`TEST_DATABA
 
 ## ◆ Documentation
 
-[Architecture](docs/architecture.md) · [Database schema](docs/database-schema.md) · [API reference](docs/api-reference.md) · [Business rules](docs/payroll-business-rules.md) · [Sign-up and email](docs/signup-and-email.md) · [Security](docs/security.md) · [Testing](docs/testing.md) · [Deployment](docs/deployment.md) · [Backup and restore](docs/backup-and-restore.md) · [Known gaps](docs/known-gaps.md) · [Client questions](docs/client-questions.md) · [Feature-gap analysis](docs/feature-gap-analysis.md) · [Change requests A, B, F](docs/change-requests.md)
+[Architecture](docs/architecture.md) · [Database schema](docs/database-schema.md) · [API reference](docs/api-reference.md) · [Business rules](docs/payroll-business-rules.md) · [Sign-up and email](docs/signup-and-email.md) · [Security](docs/security.md) · [Testing](docs/testing.md) · [Deployment](docs/deployment.md) · [Backup and restore](docs/backup-and-restore.md) · [Known gaps](docs/known-gaps.md) · [Client questions](docs/client-questions.md) · [Feature-gap analysis](docs/feature-gap-analysis.md) · [Change requests A, B, F](docs/change-requests.md) · [Module status](docs/modules.md)
 
 ## ◆ License and acknowledgments
 

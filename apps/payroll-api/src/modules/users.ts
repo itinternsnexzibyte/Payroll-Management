@@ -16,6 +16,7 @@ const userSelect = {
   createdAt: true,
   updatedAt: true,
   role: { select: { id: true, code: true, name: true, enabled: true } },
+  employee: { select: { id: true, employeeCode: true, fullName: true } },
 } satisfies Prisma.UserSelect;
 
 async function assertNotRemovingLastAdmin(userId: string, nextRoleId: string | undefined, nextStatus: string | undefined) {
@@ -84,7 +85,7 @@ export function registerUserRoutes(r: ApiRegistry) {
     summary: 'Update a user (name, role, status)',
     permission: 'users.manage',
     params: idParam,
-    body: z.object({ name: z.string().trim().min(2).max(120).optional(), roleId: z.string().uuid().optional(), status: z.enum(['ACTIVE', 'DISABLED']).optional() }),
+    body: z.object({ name: z.string().trim().min(2).max(120).optional(), roleId: z.string().uuid().optional(), status: z.enum(['ACTIVE', 'DISABLED']).optional(), employeeId: z.string().uuid().nullable().optional() }),
     handler: async ({ params, body, user, ip }) => {
       const existing = await prisma.user.findUnique({ where: { id: params.id }, include: { role: true } });
       if (!existing) throw notFound('User');
@@ -97,6 +98,11 @@ export function registerUserRoutes(r: ApiRegistry) {
         if (role.code === 'VIEWER' && !config.VIEWER_ROLE_ENABLED) throw new AppError('INVALID_STATE', 'The Viewer role is not enabled.');
       }
       await assertNotRemovingLastAdmin(params.id, body.roleId, body.status);
+      if (body.employeeId) {
+        if (!(await prisma.employee.findUnique({ where: { id: body.employeeId } }))) throw notFound('Employee');
+        const taken = await prisma.user.findFirst({ where: { employeeId: body.employeeId, id: { not: params.id } } });
+        if (taken) throw new AppError('CONFLICT', `This employee is already linked to ${taken.email}.`, { fields: [{ path: 'employeeId', message: 'Already linked to another account.' }] });
+      }
       const updated = await prisma.user.update({ where: { id: params.id }, data: { ...body, updatedById: user.id }, select: userSelect });
       if (body.status === 'DISABLED' || (body.roleId && body.roleId !== existing.roleId)) {
         await prisma.session.updateMany({ where: { userId: params.id, revokedAt: null }, data: { revokedAt: new Date() } });

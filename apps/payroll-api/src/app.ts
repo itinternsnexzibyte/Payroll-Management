@@ -14,6 +14,11 @@ import { registerOutputRoutes } from './output/routes';
 import { registerAnomalyRoutes } from './anomalies/routes';
 import { registerReconciliationRoutes } from './reconciliation/routes';
 import { registerKnowledgeRoutes } from './knowledge/routes';
+import { registerInputToolRoutes } from './payroll/input-tools';
+import { registerLeaveRoutes } from './leave/routes';
+import { registerLoanRoutes } from './loans/routes';
+import { registerBonusRoutes } from './bonuses/routes';
+import { registerSelfServiceRoutes } from './self-service/routes';
 
 export const logger = createLogger('payroll-api', config.LOG_LEVEL);
 
@@ -65,7 +70,17 @@ export function createApp() {
       registerAnomalyRoutes(r);
       registerReconciliationRoutes(r);
       registerKnowledgeRoutes(r);
+      registerInputToolRoutes(r);
+      registerLeaveRoutes(r);
+      registerLoanRoutes(r);
+      registerBonusRoutes(r);
+      registerSelfServiceRoutes(r);
     },
-    meExtras: async () => ({ app: 'payroll', rulesApproved: config.PAYROLL_RULES_APPROVED }),
+    meExtras: async (userId) => ({
+      app: 'payroll',
+      rulesApproved: config.PAYROLL_RULES_APPROVED,
+      // Self-service menu items are shown only to accounts linked to an employee record.
+      employeeLinked: Boolean((await prisma.user.findUnique({ where: { id: userId }, select: { employeeId: true } }))?.employeeId),
+    }),
   });
 }

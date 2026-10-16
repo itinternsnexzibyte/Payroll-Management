@@ -31,7 +31,7 @@ import { useInputDefinitions } from '@/lib/hooks';
 import type { AnomalyRules, InputDefinition, Settings } from '@/lib/types';
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<'rules' | 'inputs' | 'alerts'>('rules');
+  const [tab, setTab] = useState<'rules' | 'inputs' | 'alerts' | 'modules'>('rules');
   return (
     <RequirePermission permission="settings.manage">
       <PageHeader title="Payroll settings" description="Business rules applied to every payroll calculation. Every change is audit-logged." breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Payroll settings' }]} />
@@ -42,9 +42,10 @@ export default function SettingsPage() {
           { id: 'rules', label: 'Calculation & approval' },
           { id: 'inputs', label: 'Monthly input columns' },
           { id: 'alerts', label: 'Payroll alerts' },
+          { id: 'modules', label: 'Inputs from modules & email' },
         ]}
       />
-      {tab === 'rules' ? <RulesForm /> : tab === 'inputs' ? <InputDefinitions /> : <AlertRulesForm />}
+      {tab === 'rules' ? <RulesForm /> : tab === 'inputs' ? <InputDefinitions /> : tab === 'alerts' ? <AlertRulesForm /> : <ModulesForm />}
     </RequirePermission>
   );
 }
@@ -57,6 +58,86 @@ const ALERT_FIELDS: { key: Exclude<keyof AnomalyRules, 'enabled'>; label: string
   { key: 'historyMonths', label: 'Months of history to compare', hint: 'Earlier finalised months used for monthly amounts.', min: 2, integer: true },
   { key: 'minHistoryMonths', label: 'Minimum history needed', hint: 'The outlier check waits until this many months exist.', min: 2, integer: true },
 ];
+
+const MAPPINGS: { key: keyof Settings['inputMappings']; label: string; hint: string }[] = [
+  { key: 'unpaidLeaveDays', label: 'Unpaid leave days', hint: 'Approved leave of unpaid leave types in the payroll month.' },
+  { key: 'advanceRecovery', label: 'Advance / loan recovery', hint: 'The monthly instalment of the employee’s active loan or advance.' },
+  { key: 'bonus', label: 'Bonus', hint: 'Approved bonuses for the payroll month.' },
+  { key: 'incentive', label: 'Incentive', hint: 'Approved incentives for the payroll month.' },
+];
+const EMAILS: { key: keyof Settings['emailNotifications']; label: string }[] = [
+  { key: 'reviewRequests', label: 'Email approvers when payroll is submitted for review' },
+  { key: 'readyToFinalise', label: 'Email finalisers when payroll is approved' },
+  { key: 'payslipsAvailable', label: 'Email employees (with a linked account) when their payslip is available' },
+  { key: 'leaveDecisions', label: 'Email employees when their leave request is approved or rejected' },
+];
+
+function ModulesForm() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const q = useQuery({ queryKey: ['settings'], queryFn: () => get<Settings>('/settings') });
+  const defs = useInputDefinitions();
+  const [map, setMap] = useState<Settings['inputMappings'] | null>(null);
+  const [mail, setMail] = useState<Settings['emailNotifications'] | null>(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (q.data) {
+      setMap(q.data.inputMappings);
+      setMail(q.data.emailNotifications);
+    }
+  }, [q.data]);
+  if (q.isLoading || !map || !mail) return <Spinner />;
+  const numeric = (defs.data ?? []).filter((d) => d.dataType === 'NUMBER' && d.active);
+  const save = async () => {
+    setSaving(true);
+    try {
+      await put('/settings', { inputMappings: map, emailNotifications: mail });
+      await qc.invalidateQueries({ queryKey: ['settings'] });
+      toast.success('Saved.');
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="grid gap-6 xl:grid-cols-2">
+      <Card title="Inputs from leave, advances and bonuses">
+        <p className="mb-4 text-sm text-muted">
+          On a payroll run, <strong>Fill from leave, advances &amp; bonuses</strong> writes these amounts into the input columns chosen here. The salary components that use those columns decide how they affect pay. Leave a row unmapped to skip it.
+        </p>
+        <div className="space-y-4">
+          {MAPPINGS.map((m) => (
+            <Field key={m.key} label={m.label} htmlFor={`map-${m.key}`} hint={m.hint}>
+              <Select id={`map-${m.key}`} value={map[m.key] ?? ''} onChange={(e) => setMap({ ...map, [m.key]: e.target.value || null })}>
+                <option value="">Not mapped</option>
+                {numeric.map((d) => (
+                  <option key={d.key} value={d.key}>
+                    {d.label} ({d.key})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ))}
+        </div>
+        {!numeric.length && <Alert tone="info" className="mt-4">Add numeric monthly input columns first (Monthly input columns tab).</Alert>}
+      </Card>
+      <Card title="Email notifications">
+        <p className="mb-4 text-sm text-muted">Emails say what is waiting and link to the application. They never include salary amounts.</p>
+        <div className="space-y-3">
+          {EMAILS.map((m) => (
+            <Checkbox key={m.key} label={m.label} checked={mail[m.key]} onChange={(e) => setMail({ ...mail, [m.key]: e.target.checked })} />
+          ))}
+        </div>
+      </Card>
+      <div className="flex justify-end xl:col-span-2">
+        <Button loading={saving} onClick={save}>
+          Save
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function AlertRulesForm() {
   const qc = useQueryClient();

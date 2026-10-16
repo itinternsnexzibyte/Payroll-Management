@@ -14,6 +14,8 @@ export interface Employee {
   joiningDate: string;
   exitDate: string | null;
   status: 'ACTIVE' | 'INACTIVE' | 'EXITED';
+  contactEmail?: string | null;
+  contactPhone?: string | null;
   payrollRunCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -119,6 +121,8 @@ export interface Settings {
   separateApprover: boolean;
   unusualChangeThresholdPercent: number | null;
   anomalyRules: AnomalyRules;
+  inputMappings: { unpaidLeaveDays: string | null; advanceRecovery: string | null; bonus: string | null; incentive: string | null };
+  emailNotifications: { reviewRequests: boolean; readyToFinalise: boolean; payslipsAvailable: boolean; leaveDecisions: boolean };
   rulesApproved: boolean;
   viewerRoleEnabled: boolean;
   payslipCompanyName: string;

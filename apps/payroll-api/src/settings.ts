@@ -13,6 +13,23 @@ export const settingsSchema = z.object({
   requireApprovalStep: z.boolean(),
   separateApprover: z.boolean(),
   unusualChangeThresholdPercent: z.number().min(1).max(1000).nullable(),
+  /**
+   * Which monthly input column receives amounts from other modules when "Fill from leave, advances
+   * and bonuses" is used on a payroll run. null = not mapped (that module is not filled).
+   */
+  inputMappings: z.object({
+    unpaidLeaveDays: z.string().max(40).nullable(),
+    advanceRecovery: z.string().max(40).nullable(),
+    bonus: z.string().max(40).nullable(),
+    incentive: z.string().max(40).nullable(),
+  }),
+  /** Email notifications (no amounts are ever included in emails). */
+  emailNotifications: z.object({
+    reviewRequests: z.boolean(),
+    readyToFinalise: z.boolean(),
+    payslipsAvailable: z.boolean(),
+    leaveDecisions: z.boolean(),
+  }),
   /** Anomaly alert thresholds (change request A). Placeholders until agreed with the client. */
   anomalyRules: z.object({
     enabled: z.boolean(),
@@ -38,6 +55,8 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
   separateApprover: false,
   unusualChangeThresholdPercent: null,
   anomalyRules: DEFAULT_ANOMALY_RULES,
+  inputMappings: { unpaidLeaveDays: null, advanceRecovery: null, bonus: null, incentive: null },
+  emailNotifications: { reviewRequests: true, readyToFinalise: true, payslipsAvailable: true, leaveDecisions: true },
 };
 
 export async function getSettings(db: Tx | typeof prisma = prisma): Promise<PayrollSettings> {

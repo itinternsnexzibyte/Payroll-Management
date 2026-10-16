@@ -1,4 +1,6 @@
 'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarClock, CheckCircle2, ClipboardCheck, FilePen, FileText, Upload, UsersRound, Wallet } from 'lucide-react';
@@ -19,7 +21,13 @@ interface Dashboard {
 
 export default function DashboardPage() {
   const { user, can } = useAuth();
-  const q = useQuery({ queryKey: ['dashboard'], queryFn: () => get<Dashboard>('/dashboard') });
+  const router = useRouter();
+  // Employee self-service accounts have their own home page.
+  const selfOnly = !can('payroll.view') && can('self.service');
+  useEffect(() => {
+    if (selfOnly) router.replace('/my');
+  }, [selfOnly, router]);
+  const q = useQuery({ queryKey: ['dashboard'], queryFn: () => get<Dashboard>('/dashboard'), enabled: !selfOnly });
   const d = q.data;
 
   const quick = [

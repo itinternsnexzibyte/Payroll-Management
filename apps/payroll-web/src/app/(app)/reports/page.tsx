@@ -127,6 +127,7 @@ function ReportView({ path, filename }: { path: string; filename: string }) {
 }
 
 const REPORTS = [
+  { id: 'register', label: 'Monthly payroll register (all components)', path: (id: string) => `/reports/payroll-register${qs({ runId: id })}`, file: 'payroll-register' },
   { id: 'summary', label: 'Monthly payroll summary', path: (id: string) => `/reports/monthly-summary${qs({ runId: id })}`, file: 'payroll-summary' },
   { id: 'earnings', label: 'Earnings report', path: (id: string) => `/reports/components${qs({ runId: id, type: 'EARNING' })}`, file: 'earnings' },
   { id: 'deductions', label: 'Deductions report', path: (id: string) => `/reports/components${qs({ runId: id, type: 'DEDUCTION' })}`, file: 'deductions' },

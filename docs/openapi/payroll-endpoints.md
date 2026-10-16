@@ -7,12 +7,14 @@
 | Auth | `GET` | `/auth/signup/config` | Whether self-service sign-up is available | public |
 | Auth | `POST` | `/auth/signup/start` | Step 1: send a 6-digit verification code to the email address | public |
 | Auth | `POST` | `/auth/signup/verify` | Step 2: check the code; returns a short-lived sign-up token | public |
-| Auth | `POST` | `/auth/signup/complete` | Step 3: set name and password and create the account | public |
+| Auth | `POST` | `/auth/signup/complete` | Step 3: set name and password and create the account (Payroll User, or an Administrator request awaiting approval) | public |
 | Users & Roles | `GET` | `/users` | List users | users.manage |
 | Users & Roles | `POST` | `/users` | Create a user with a temporary password (must be changed at first sign-in) | users.manage |
 | Users & Roles | `PUT` | `/users/{id}` | Update a user (name, role, status) | users.manage |
 | Users & Roles | `POST` | `/users/{id}/reset-password` | Set a temporary password, unlock the account and revoke sessions | users.manage |
 | Users & Roles | `POST` | `/users/{id}/unlock` | Clear a sign-in lockout | users.manage |
+| Users & Roles | `POST` | `/users/{id}/approve` | Approve a pending account request (activates it with its requested role) | users.manage |
+| Users & Roles | `POST` | `/users/{id}/reject` | Reject a pending account request (the account is disabled, never deleted) | users.manage |
 | Users & Roles | `GET` | `/roles` | List roles with permissions | users.manage |
 | Users & Roles | `GET` | `/permissions` | Permission catalogue | users.manage |
 | Users & Roles | `PUT` | `/roles/{id}/permissions` | Replace a role's permissions (applies the client's confirmed permission matrix) | users.manage |
@@ -68,6 +70,7 @@
 | Payslips | `GET` | `/payroll-runs/{id}/payslips/bulk` | All payslips of a run in one print-ready PDF (one employee per page) | payslips.generate |
 | Reports | `GET` | `/reports/monthly-summary` | Monthly payroll summary: employee-wise gross, deductions and net with totals | reports.view |
 | Reports | `GET` | `/reports/components` | Earnings report / deductions report: component-wise totals and per-employee breakdown | reports.view |
+| Reports | `GET` | `/reports/payroll-register` | Monthly payroll register: every earning and deduction per employee, with gross, deductions, net and totals | reports.view |
 | Reports | `GET` | `/reports/net-payable` | Net payable report for a run | reports.view |
 | Reports | `GET` | `/reports/employee-statement` | Employee-wise salary statement (month by month) | reports.view |
 | Dashboard | `GET` | `/dashboard` | Dashboard figures from live data (amounts only with permission) | signed in |
@@ -96,3 +99,29 @@
 | Knowledge | `PUT` | `/knowledge/checklist-items/{id}` | Edit, reorder or deactivate a checklist step | knowledge.manage |
 | Knowledge | `GET` | `/payroll-runs/{id}/checklist` | Checklist progress for a payroll run | payroll.view |
 | Knowledge | `PUT` | `/payroll-runs/{id}/checklist/{itemId}` | Tick or untick a checklist step for a run (process tracking only; never changes payroll) | payroll.input, payroll.calculate, payroll.approve, payroll.finalise |
+| Payroll Runs | `GET` | `/payroll-runs/{id}/inputs/template` | Download an XLSX template of this run’s employees and input columns (with current values) | payroll.input |
+| Payroll Runs | `POST` | `/payroll-runs/{id}/inputs/import` | Import monthly inputs (attendance, leave, working days…) from CSV/XLSX: an Employee ID column plus input columns | payroll.input |
+| Payroll Runs | `POST` | `/payroll-runs/{id}/inputs/fill` | Fill the mapped input columns from approved leave, active advances and approved bonuses (overwrites those columns only) | payroll.input |
+| Leave | `GET` | `/leave/types` | Leave types | leave.view, leave.manage, leave.approve, self.service |
+| Leave | `POST` | `/leave/types` | Create a leave type | leave.manage |
+| Leave | `PUT` | `/leave/types/{id}` | Edit or deactivate a leave type (the code cannot change) | leave.manage |
+| Leave | `PUT` | `/leave/entitlements` | Set an employee's yearly allowance for a leave type (overrides the type default) | leave.manage |
+| Leave | `GET` | `/leave/balances` | Leave balances per employee and type for a year | leave.view, leave.manage, leave.approve |
+| Leave | `GET` | `/leave/requests` | Leave requests (filter by status, employee, month) | leave.view, leave.manage, leave.approve |
+| Leave | `POST` | `/leave/requests` | Record a leave request for an employee (one calendar month at most) | leave.manage |
+| Leave | `POST` | `/leave/requests/{id}/approve` | Approve a leave request | leave.approve |
+| Leave | `POST` | `/leave/requests/{id}/reject` | Reject a leave request (note required) | leave.approve |
+| Leave | `POST` | `/leave/requests/{id}/cancel` | Cancel a pending request (Leave managers), or an approved one (Leave approvers) | leave.manage, leave.approve |
+| Loans & Advances | `GET` | `/loans` | Loans and salary advances with recovered and outstanding amounts | loans.manage |
+| Loans & Advances | `POST` | `/loans` | Record a loan or salary advance with a monthly instalment | loans.manage |
+| Loans & Advances | `POST` | `/loans/{id}/close` | Close a loan (repaid or settled outside payroll) or cancel one entered by mistake | loans.manage |
+| Bonuses & Incentives | `GET` | `/bonuses` | Bonuses and incentives for a payroll month | bonuses.manage, payroll.approve |
+| Bonuses & Incentives | `POST` | `/bonuses` | Propose a bonus or incentive for an employee and payroll month | bonuses.manage |
+| Bonuses & Incentives | `POST` | `/bonuses/{id}/approve` | Approve a proposed bonus or incentive (not your own proposal) | payroll.approve |
+| Bonuses & Incentives | `POST` | `/bonuses/{id}/reject` | Reject a proposed bonus or incentive | payroll.approve |
+| Self-service | `GET` | `/me/employee` | My employee details | self.service |
+| Self-service | `GET` | `/me/payslips` | My issued payslips (finalised months only) | self.service |
+| Self-service | `GET` | `/me/payslips/{id}` | Download one of my payslips (PDF) | self.service |
+| Self-service | `GET` | `/me/leave` | My leave requests and balances | self.service |
+| Self-service | `POST` | `/me/leave` | Request leave for myself | self.service |
+| Self-service | `POST` | `/me/leave/{id}/cancel` | Cancel one of my pending leave requests | self.service |

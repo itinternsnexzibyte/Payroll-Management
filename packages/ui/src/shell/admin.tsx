@@ -29,6 +29,7 @@ interface UserRow {
   lastLoginAt: string | null;
   lockedUntil: string | null;
   role: { id: string; code: string; name: string };
+  employee?: { id: string; employeeCode: string; fullName: string } | null;
   engineerCode?: string | null;
   phone?: string | null;
   designation?: string | null;
@@ -43,7 +44,8 @@ export interface ProfileField {
 const PW_HINT = 'Temporary password: at least 10 characters with upper- and lower-case letters and a digit. The user must change it at first sign-in.';
 const strong = (p: string) => p.length >= 10 && /[a-z]/.test(p) && /[A-Z]/.test(p) && /\d/.test(p);
 
-export function UsersAdmin({ profileFields = [] }: { profileFields?: ProfileField[] }) {
+/** `employeeOptions` enables linking an account to an employee record (employee self-service). */
+export function UsersAdmin({ profileFields = [], employeeOptions }: { profileFields?: ProfileField[]; employeeOptions?: { id: string; label: string }[] }) {
   const { user: me } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -125,7 +127,7 @@ export function UsersAdmin({ profileFields = [] }: { profileFields?: ProfileFiel
           onSort={list.toggleSort}
           columns={[
             { key: 'name', header: 'Name', sortable: true, render: (u) => (<span><span className="font-medium">{u.name}</span>{u.id === me?.id && <Badge className="ml-2" tone="brand">You</Badge>}<span className="block text-xs text-muted">{u.email}</span></span>) },
-            { key: 'role', header: 'Role', render: (u) => u.role.name },
+            { key: 'role', header: 'Role', render: (u) => (<span>{u.role.name}{u.employee && <span className="block text-xs text-muted">Employee {u.employee.employeeCode}</span>}</span>) },
             ...profileFields.filter((f) => f.key === 'engineerCode').map((f) => ({ key: f.key, header: f.label, render: (u: UserRow) => u[f.key] ?? '—' })),
             {
               key: 'status',
@@ -173,7 +175,7 @@ export function UsersAdmin({ profileFields = [] }: { profileFields?: ProfileFiel
         />
         {q.data && <Pagination page={q.data.page} totalPages={q.data.totalPages} total={q.data.total} pageSize={q.data.pageSize} onPage={list.setPage} onPageSize={list.setPageSize} />}
       </Card>
-      <UserDialog editing={editing} onClose={() => setEditing(null)} roles={roles.data ?? []} profileFields={profileFields} isSelf={editing !== 'new' && editing?.id === me?.id} />
+      <UserDialog editing={editing} onClose={() => setEditing(null)} roles={roles.data ?? []} profileFields={profileFields} isSelf={editing !== 'new' && editing?.id === me?.id} employeeOptions={employeeOptions} />
       <ResetDialog user={resetting} onClose={() => setResetting(null)} />
       <ConfirmDialog
         open={!!rejecting}
@@ -190,17 +192,17 @@ export function UsersAdmin({ profileFields = [] }: { profileFields?: ProfileFiel
   );
 }
 
-function UserDialog({ editing, onClose, roles, profileFields, isSelf }: { editing: UserRow | 'new' | null; onClose: () => void; roles: Role[]; profileFields: ProfileField[]; isSelf: boolean }) {
+function UserDialog({ editing, onClose, roles, profileFields, isSelf, employeeOptions }: { editing: UserRow | 'new' | null; onClose: () => void; roles: Role[]; profileFields: ProfileField[]; isSelf: boolean; employeeOptions?: { id: string; label: string }[] }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [f, setF] = useState({ email: '', name: '', roleId: '', status: 'ACTIVE', temporaryPassword: '', engineerCode: '', phone: '', designation: '' });
+  const [f, setF] = useState({ email: '', name: '', roleId: '', status: 'ACTIVE', temporaryPassword: '', engineerCode: '', phone: '', designation: '', employeeId: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!editing) return;
     const u = editing === 'new' ? null : editing;
     setErrors({});
-    setF({ email: u?.email ?? '', name: u?.name ?? '', roleId: u?.role.id ?? roles.find((r) => r.code !== 'ADMIN' && r.enabled)?.id ?? '', status: u?.status ?? 'ACTIVE', temporaryPassword: '', engineerCode: u?.engineerCode ?? '', phone: u?.phone ?? '', designation: u?.designation ?? '' });
+    setF({ email: u?.email ?? '', name: u?.name ?? '', roleId: u?.role.id ?? roles.find((r) => r.code !== 'ADMIN' && r.enabled)?.id ?? '', status: u?.status ?? 'ACTIVE', temporaryPassword: '', engineerCode: u?.engineerCode ?? '', phone: u?.phone ?? '', designation: u?.designation ?? '', employeeId: u?.employee?.id ?? '' });
   }, [editing, roles]);
   if (!editing) return null;
   const isNew = editing === 'new';
@@ -215,8 +217,11 @@ function UserDialog({ editing, onClose, roles, profileFields, isSelf }: { editin
     const profile = Object.fromEntries(profileFields.map((p) => [p.key, f[p.key].trim() || null]));
     setSaving(true);
     try {
-      if (isNew) await post('/users', { email: f.email.trim(), name: f.name.trim(), roleId: f.roleId, temporaryPassword: f.temporaryPassword, ...profile });
-      else await put(`/users/${editing.id}`, { name: f.name.trim(), ...(isSelf ? {} : { roleId: f.roleId, status: f.status }), ...profile });
+      const link = employeeOptions ? { employeeId: f.employeeId || null } : {};
+      if (isNew) {
+        const created = await post<{ id: string }>('/users', { email: f.email.trim(), name: f.name.trim(), roleId: f.roleId, temporaryPassword: f.temporaryPassword, ...profile });
+        if (employeeOptions && f.employeeId) await put(`/users/${created.id}`, link);
+      } else await put(`/users/${editing.id}`, { name: f.name.trim(), ...(isSelf ? {} : { roleId: f.roleId, status: f.status }), ...profile, ...link });
       await qc.invalidateQueries({ queryKey: ['users'] });
       toast.success(isNew ? 'User created. Share the temporary password through a secure channel.' : 'User updated.');
       onClose();
@@ -260,6 +265,18 @@ function UserDialog({ editing, onClose, roles, profileFields, isSelf }: { editin
             ))}
           </Select>
         </Field>
+        {employeeOptions && (
+          <Field label="Linked employee" htmlFor="u-emp" error={errors.employeeId} hint="For employee self-service: the person sees only this employee's payslips and leave.">
+            <Select id="u-emp" value={f.employeeId} onChange={(e) => setF({ ...f, employeeId: e.target.value })}>
+              <option value="">Not linked</option>
+              {employeeOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         {profileFields.map((p) => (
           <Field key={p.key} label={p.label} htmlFor={`u-${p.key}`} hint={p.hint} error={errors[p.key]}>
             <Input id={`u-${p.key}`} value={f[p.key]} onChange={(e) => setF({ ...f, [p.key]: e.target.value })} />

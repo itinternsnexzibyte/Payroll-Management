@@ -34,6 +34,8 @@ export function serializeEmployee(e: EmployeeRow) {
     joiningDate: toIsoDate(e.joiningDate),
     exitDate: toIsoDate(e.exitDate),
     status: e.status,
+    contactEmail: e.contactEmail,
+    contactPhone: e.contactPhone,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
   };
@@ -48,6 +50,14 @@ const employeeBody = z
     joiningDate: isoDate,
     exitDate: isoDate.nullable().optional(),
     status: z.enum(['ACTIVE', 'INACTIVE', 'EXITED']).default('ACTIVE'),
+    contactEmail: z.string().trim().toLowerCase().email('Enter a valid email address.').max(200).nullable().optional().or(z.literal('').transform(() => null)),
+    contactPhone: z
+      .string()
+      .trim()
+      .regex(/^\+?[0-9 ()-]{7,20}$/, 'Enter a phone number with 7–20 digits (spaces, +, - and brackets allowed).')
+      .nullable()
+      .optional()
+      .or(z.literal('').transform(() => null)),
   })
   .superRefine((v, ctx) => {
     if (v.exitDate && v.exitDate < v.joiningDate) ctx.addIssue({ code: 'custom', path: ['exitDate'], message: 'Exit date cannot be before the joining date.' });

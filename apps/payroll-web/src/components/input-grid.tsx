@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save, Undo2 } from 'lucide-react';
 import { Alert, Button, EmptyState, ErrorState, Input, Spinner, cn, errorMessage, get, put, useToast } from '@nexzi/ui';
 import type { InputDefinition } from '@/lib/types';
+import { InputTools } from './input-tools';
 
 interface GridData {
   status: string;
@@ -172,6 +173,10 @@ export function InputGrid({ runId, editable, onSaved }: { runId: string; editabl
         {dirty.size > 0 && <span className="text-xs font-medium text-cobalt">{dirty.size} unsaved change(s)</span>}
         {editable && (
           <>
+            <InputTools runId={runId} hasUnsaved={dirty.size > 0} onChanged={() => {
+              q.refetch();
+              onSaved();
+            }} />
             <Button size="sm" variant="secondary" icon={<Undo2 className="h-4 w-4" />} disabled={!dirty.size || saving} onClick={discard}>
               Discard
             </Button>

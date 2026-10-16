@@ -6,6 +6,7 @@ import { getSettings } from '../settings';
 import { isEligible, selectSalaryVersion } from './engine';
 import * as svc from './service';
 import { scanRun } from '../anomalies/service';
+import { notifyRun } from '../notify';
 
 const alertLog = createLogger('payroll-api-alerts', process.env.LOG_LEVEL);
 
@@ -219,7 +220,11 @@ export function registerPayrollRoutes(r: ApiRegistry) {
     permission: 'payroll.calculate',
     params: runIdParam,
     body: z.object({ acknowledgeWarnings: z.boolean().default(false) }),
-    handler: async ({ params, body, user, ip }) => svc.submitForReview(user, params.id, body.acknowledgeWarnings, ip),
+    handler: async ({ params, body, user, ip }) => {
+      const result = await svc.submitForReview(user, params.id, body.acknowledgeWarnings, ip);
+      void notifyRun(params.id, 'SUBMITTED');
+      return result;
+    },
   });
 
   r.add({
@@ -240,7 +245,11 @@ export function registerPayrollRoutes(r: ApiRegistry) {
     summary: 'Approve a payroll run under review',
     permission: 'payroll.approve',
     params: runIdParam,
-    handler: async ({ params, user, ip }) => svc.approve(user, params.id, ip),
+    handler: async ({ params, user, ip }) => {
+      const result = await svc.approve(user, params.id, ip);
+      void notifyRun(params.id, 'APPROVED');
+      return result;
+    },
   });
 
   r.add({

@@ -17,6 +17,7 @@ import { config } from '../config';
 import { periodLabel } from '../payroll/service';
 import { renderPayslipHtml, type PayslipData, type ReportColumn, type ReportData } from './templates';
 import { sendPdf, sendReport } from './report-export';
+import { notifyRun } from '../notify';
 
 export const storage = new FileStorage(config.STORAGE_DIR);
 
@@ -151,6 +152,7 @@ export function registerOutputRoutes(r: ApiRegistry) {
         generated++;
       }
       await audit.write({ actorId: user.id, action: 'payslip.bulk_generated', entity: 'payroll_run', entityId: run.id, metadata: { generated, alreadyPresent: existing.size }, ip });
+      if (generated > 0) void notifyRun(run.id, 'PAYSLIPS');
       return { generated, alreadyPresent: existing.size, total: members.length };
     },
   });
@@ -267,6 +269,62 @@ export function registerOutputRoutes(r: ApiRegistry) {
       };
       if (query.format !== 'json') await audit.write({ actorId: user.id, action: 'report.exported', entity: 'payroll_run', entityId: run.id, metadata: { report: query.type, format: query.format }, ip });
       return sendReport(res, query.format, report, `${query.type === 'EARNING' ? 'earnings' : 'deductions'}-${run.year}-${String(run.month).padStart(2, '0')}`);
+    },
+  });
+
+  r.add({
+    method: 'get',
+    path: '/reports/payroll-register',
+    tag: 'Reports',
+    summary: 'Monthly payroll register: every earning and deduction per employee, with gross, deductions, net and totals',
+    permission: ['reports.view'],
+    produces: 'xlsx',
+    query: z.object({ runId: z.string().uuid(), format: formatQ }),
+    handler: async ({ query, res, user, ip }) => {
+      if (!canSeeAmounts(user)) throw new AppError('FORBIDDEN', 'You do not have permission to view payroll amounts.');
+      const run = await loadRun(query.runId);
+      const [members, lines] = await Promise.all([
+        prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, orderBy: { employeeCode: 'asc' } }),
+        prisma.payrollLine.findMany({ where: { payrollRunId: run.id }, orderBy: [{ sortOrder: 'asc' }, { componentCode: 'asc' }] }),
+      ]);
+      const comps = [...new Map(lines.map((l) => [l.componentCode, { name: l.componentName, type: l.componentType }])).entries()];
+      const earnings = comps.filter(([, c]) => c.type === 'EARNING');
+      const deductions = comps.filter(([, c]) => c.type === 'DEDUCTION');
+      const columns: ReportColumn[] = [
+        { header: 'Employee ID', key: 'code' },
+        { header: 'Employee Name', key: 'name' },
+        { header: 'Department', key: 'dept' },
+        ...earnings.map(([code, c]) => ({ header: c.name, key: `c_${code}`, numeric: true })),
+        { header: 'Gross', key: 'gross', numeric: true },
+        ...deductions.map(([code, c]) => ({ header: c.name, key: `c_${code}`, numeric: true })),
+        { header: 'Total deductions', key: 'deductions', numeric: true },
+        { header: 'Net pay', key: 'net', numeric: true },
+      ];
+      const totals: Record<string, Dec> = {};
+      const add = (k: string, v: Dec) => (totals[k] = (totals[k] ?? new Dec(0)).add(v));
+      const rows = members.map((m) => {
+        const row: Record<string, string> = { code: m.employeeCode, name: m.employeeName, dept: m.departmentName ?? '' };
+        for (const [code] of comps) {
+          const l = lines.find((x) => x.employeeId === m.employeeId && x.componentCode === code);
+          row[`c_${code}`] = l ? money(dec(l.amount)) : '';
+          if (l) add(`c_${code}`, dec(l.amount));
+        }
+        for (const [k, v] of [['gross', m.gross], ['deductions', m.deductions], ['net', m.net]] as const) {
+          row[k] = v === null ? '' : money(dec(v));
+          if (v !== null) add(k, dec(v));
+        }
+        return row;
+      });
+      const report: ReportData = {
+        title: `Payroll Register — ${periodLabel(run.year, run.month)}`,
+        subtitle: `${members.length} employee(s) · generated ${fmtNow()}`,
+        banners: runStatusNote(run),
+        columns,
+        rows,
+        totals: { code: 'Total', name: '', dept: '', ...Object.fromEntries(Object.entries(totals).map(([k, v]) => [k, money(v)])) },
+      };
+      if (query.format !== 'json') await audit.write({ actorId: user.id, action: 'report.exported', entity: 'payroll_run', entityId: run.id, metadata: { report: 'payroll-register', format: query.format }, ip });
+      return sendReport(res, query.format, report, `payroll-register-${run.year}-${String(run.month).padStart(2, '0')}`);
     },
   });
 

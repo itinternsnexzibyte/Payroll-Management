@@ -16,6 +16,8 @@ const schema = z
     joiningDate: z.string().min(1, 'Enter the joining date.'),
     exitDate: z.string(),
     status: z.enum(['ACTIVE', 'INACTIVE', 'EXITED']),
+    contactEmail: z.string().trim().max(200).refine((v) => !v || /^\S+@\S+\.\S+$/.test(v), 'Enter a valid email address.'),
+    contactPhone: z.string().trim().max(20).refine((v) => !v || /^\+?[0-9 ()-]{7,20}$/.test(v), 'Enter a phone number with 7–20 digits.'),
   })
   .superRefine((v, ctx) => {
     if (v.exitDate && v.joiningDate && v.exitDate < v.joiningDate) ctx.addIssue({ code: 'custom', path: ['exitDate'], message: 'Exit date cannot be before the joining date.' });
@@ -44,11 +46,13 @@ export function EmployeeForm({ employee, onSaved, onCancel }: { employee?: Emplo
       joiningDate: employee?.joiningDate ?? '',
       exitDate: employee?.exitDate ?? '',
       status: employee?.status ?? 'ACTIVE',
+      contactEmail: employee?.contactEmail ?? '',
+      contactPhone: employee?.contactPhone ?? '',
     },
   });
 
   const onSubmit = async (v: FormValues) => {
-    const body = { ...v, departmentId: v.departmentId || null, designationId: v.designationId || null, exitDate: v.exitDate || null };
+    const body = { ...v, departmentId: v.departmentId || null, designationId: v.designationId || null, exitDate: v.exitDate || null, contactEmail: v.contactEmail || null, contactPhone: v.contactPhone || null };
     try {
       const saved = employee ? await put<Employee>(`/employees/${employee.id}`, body) : await post<Employee>('/employees', body);
       await qc.invalidateQueries({ queryKey: ['employees'] });
@@ -104,6 +108,12 @@ export function EmployeeForm({ employee, onSaved, onCancel }: { employee?: Emplo
             <option value="INACTIVE">Inactive</option>
             <option value="EXITED">Exited</option>
           </Select>
+        </Field>
+        <Field label="Contact email" htmlFor="contactEmail" error={errors.contactEmail?.message}>
+          <Input id="contactEmail" type="email" autoComplete="off" {...register('contactEmail')} invalid={!!errors.contactEmail} />
+        </Field>
+        <Field label="Contact phone" htmlFor="contactPhone" error={errors.contactPhone?.message}>
+          <Input id="contactPhone" type="tel" autoComplete="off" {...register('contactPhone')} invalid={!!errors.contactPhone} />
         </Field>
       </div>
       <p className="text-xs text-muted">Bank, identity and other personal fields are added only when confirmed from the client&apos;s payroll workbook.</p>

@@ -65,6 +65,9 @@ model User {
   createdById        String?    @db.Uuid
   updatedById        String?    @db.Uuid
   sessions           Session[]
+  /// Self-service: the employee record this account belongs to (one account per employee)
+  employeeId         String?    @unique @db.Uuid
+  employee           Employee?  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
 
   @@index([roleId])
   @@map("users")
@@ -183,6 +186,9 @@ model Employee {
   joiningDate    DateTime             @db.Date
   exitDate       DateTime?            @db.Date
   status         EmployeeStatus       @default(ACTIVE)
+  /// Contact details (optional)
+  contactEmail   String?
+  contactPhone   String?
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
   createdById    String?              @db.Uuid
@@ -194,6 +200,11 @@ model Employee {
   payslips       Payslip[]
   anomalies      PayrollAnomaly[]
   reconNotes     ReconciliationNote[]
+  user           User?
+  leaveRequests  LeaveRequest[]
+  entitlements   LeaveEntitlement[]
+  loans          Loan[]
+  bonuses        BonusEntry[]
 
   @@index([fullName])
   @@index([status])
@@ -678,4 +689,149 @@ model PayrollRunChecklist {
 
   @@unique([payrollRunId, itemId])
   @@map("payroll_run_checklist")
+}
+
+// ---------------------------------------------------------------- Leave management
+
+enum LeaveStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Leave types and yearly allowance. Unpaid types feed the unpaid-leave payroll input when mapped.
+model LeaveType {
+  id           String             @id @default(uuid()) @db.Uuid
+  code         String             @unique
+  name         String
+  paid         Boolean            @default(true)
+  /// Days per calendar year (null = no limit tracked)
+  annualDays   Decimal?           @db.Decimal(6, 1)
+  active       Boolean            @default(true)
+  sortOrder    Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  requests     LeaveRequest[]
+  entitlements LeaveEntitlement[]
+
+  @@map("leave_types")
+}
+
+/// Optional per-employee override of the yearly allowance.
+model LeaveEntitlement {
+  id          String    @id @default(uuid()) @db.Uuid
+  employeeId  String    @db.Uuid
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  leaveTypeId String    @db.Uuid
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  year        Int
+  days        Decimal   @db.Decimal(6, 1)
+  updatedAt   DateTime  @updatedAt
+  updatedById String?   @db.Uuid
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@map("leave_entitlements")
+}
+
+/// A leave request within one calendar month (split longer leave into one request per month).
+model LeaveRequest {
+  id              String      @id @default(uuid()) @db.Uuid
+  employeeId      String      @db.Uuid
+  employee        Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  leaveTypeId     String      @db.Uuid
+  leaveType       LeaveType   @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  /// Days counted, as entered (half days allowed); never more than the calendar span
+  days            Decimal     @db.Decimal(5, 1)
+  reason          String?
+  status          LeaveStatus @default(REQUESTED)
+  requestedById   String?     @db.Uuid
+  requestedByName String?
+  decidedById     String?     @db.Uuid
+  decidedByName   String?
+  decidedAt       DateTime?
+  decisionNote    String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([employeeId, startDate])
+  @@index([status])
+  @@map("leave_requests")
+}
+
+// ---------------------------------------------------------------- Loans and salary advances
+
+enum LoanKind {
+  LOAN
+  ADVANCE
+}
+
+enum LoanStatus {
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+/// A loan or salary advance recovered through the mapped payroll input. Recoveries are read from
+/// finalised payroll runs, so re-opening a run can never leave a stale repayment behind.
+model Loan {
+  id            String     @id @default(uuid()) @db.Uuid
+  employeeId    String     @db.Uuid
+  employee      Employee   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  kind          LoanKind
+  principal     Decimal    @db.Decimal(18, 4)
+  instalment    Decimal    @db.Decimal(18, 4)
+  startYear     Int
+  startMonth    Int
+  status        LoanStatus @default(ACTIVE)
+  note          String?
+  closedAt      DateTime?
+  closedReason  String?
+  createdAt     DateTime   @default(now())
+  createdById   String?    @db.Uuid
+  createdByName String?
+  updatedAt     DateTime   @updatedAt
+
+  @@index([employeeId, status])
+  @@map("loans")
+}
+
+// ---------------------------------------------------------------- Bonuses and incentives
+
+enum BonusKind {
+  BONUS
+  INCENTIVE
+}
+
+enum BonusStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+}
+
+/// An approved amount for one employee and payroll month. Amounts are entered, never calculated here.
+model BonusEntry {
+  id             String      @id @default(uuid()) @db.Uuid
+  employeeId     String      @db.Uuid
+  employee       Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  kind           BonusKind
+  year           Int
+  month          Int
+  amount         Decimal     @db.Decimal(18, 4)
+  reason         String
+  status         BonusStatus @default(PROPOSED)
+  proposedById   String?     @db.Uuid
+  proposedByName String?
+  decidedById    String?     @db.Uuid
+  decidedByName  String?
+  decidedAt      DateTime?
+  decisionNote   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([year, month, status])
+  @@index([employeeId])
+  @@map("bonus_entries")
 }
