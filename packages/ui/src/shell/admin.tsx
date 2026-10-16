@@ -414,7 +414,7 @@ export function AuditLog() {
           columns={[
             { key: 'occurredAt', header: 'When', sortable: true, render: (r) => <span className="whitespace-nowrap">{formatDateTime(r.occurredAt)}</span> },
             { key: 'actor', header: 'User', render: (r) => r.actorEmail ?? <span className="text-muted">anonymous</span> },
-            { key: 'action', header: 'Action', render: (r) => <code className="rounded bg-canvas px-1.5 py-0.5 text-xs text-wine">{r.action}</code> },
+            { key: 'action', header: 'Action', render: (r) => <code className="rounded bg-canvas px-1.5 py-0.5 text-xs text-cobalt">{r.action}</code> },
             { key: 'entity', header: 'Record', render: (r) => (<span className="text-xs">{r.entity}<span className="block truncate text-muted">{r.entityId ?? ''}</span></span>) },
             { key: 'd', header: '', align: 'right', render: (r) => (r.before || r.after || r.metadata ? <Button size="sm" variant="ghost" onClick={() => setOpen(r)}>Details</Button> : null) },
           ]}

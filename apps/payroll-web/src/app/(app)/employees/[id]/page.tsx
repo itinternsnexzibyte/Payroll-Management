@@ -163,7 +163,7 @@ function SalaryTab({ employeeId }: { employeeId: string }) {
           </>
         )}
       </Card>
-      <Card title={<span className="inline-flex items-center gap-2"><History className="h-4 w-4 text-rose" />Salary history</span>} padded={false}>
+      <Card title={<span className="inline-flex items-center gap-2"><History className="h-4 w-4 text-haze" />Salary history</span>} padded={false}>
         {hist.isLoading ? (
           <Spinner />
         ) : !hist.data?.length ? (
@@ -213,7 +213,7 @@ function PayrollHistoryTab({ employeeId }: { employeeId: string }) {
         rowHref={(r) => `/payroll/${r.runId}`}
         empty={<EmptyState title="Not included in any payroll run yet" />}
         columns={[
-          { key: 'period', header: 'Month', render: (r) => <Link href={`/payroll/${r.runId}`} className="font-medium text-wine hover:underline">{r.period}</Link> },
+          { key: 'period', header: 'Month', render: (r) => <Link href={`/payroll/${r.runId}`} className="font-medium text-cobalt hover:underline">{r.period}</Link> },
           { key: 'runStatus', header: 'Payroll status', render: (r) => <StatusBadge status={r.runStatus} /> },
           { key: 'resultStatus', header: 'Result', render: (r) => <StatusBadge status={r.resultStatus} /> },
           { key: 'gross', header: 'Gross', align: 'right', render: (r) => formatMoney(r.gross) },

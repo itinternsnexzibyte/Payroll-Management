@@ -80,7 +80,7 @@ export function SalaryVersionDialog({ open, onClose, employeeId, current }: { op
         {errors.values && <p className="text-xs font-medium text-danger">{errors.values}</p>}
         <div className="overflow-hidden rounded-md border border-line">
           <table className="w-full text-sm">
-            <thead className="bg-blush/35 text-left text-xs uppercase tracking-wide text-burgundy">
+            <thead className="bg-mist/35 text-left text-xs uppercase tracking-wide text-primary">
               <tr>
                 <th className="px-3 py-2">Component</th>
                 <th className="px-3 py-2">Type</th>

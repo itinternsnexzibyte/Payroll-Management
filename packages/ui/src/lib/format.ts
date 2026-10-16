@@ -1,9 +1,9 @@
 import clsx, { type ClassValue } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
 
-// Teach tailwind-merge about the custom brand colour tokens so e.g. `bg-burgundy` overrides `bg-white`.
+// Teach tailwind-merge about the custom brand colour tokens so e.g. `bg-primary` overrides `bg-white`.
 const twMerge = extendTailwindMerge({
-  extend: { theme: { color: ['burgundy', 'wine', 'rose', 'blush', 'ink', 'muted', 'line', 'canvas', 'success', 'success-bg', 'warning', 'warning-bg', 'danger', 'danger-bg'] } },
+  extend: { theme: { color: ['primary', 'cobalt', 'haze', 'mist', 'accent', 'accent-ink', 'navy', 'surface', 'ink', 'muted', 'line', 'canvas', 'success', 'success-bg', 'warning', 'warning-bg', 'danger', 'danger-bg'] } },
 });
 
 /** Joins class names; later conflicting Tailwind utilities win (e.g. a caller's `w-48` over a default `w-full`). */

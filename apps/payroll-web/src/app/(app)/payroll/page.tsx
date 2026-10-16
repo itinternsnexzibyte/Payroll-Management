@@ -97,7 +97,7 @@ function RunsList() {
           onSort={list.toggleSort}
           empty={<EmptyState title="No payroll runs found" hint={can('payroll.input') ? 'Start a run for the month you want to process.' : undefined} />}
           columns={[
-            { key: 'period', header: 'Month', sortable: true, render: (r) => <Link className="font-medium text-wine hover:underline" href={`/payroll/${r.id}`}>{r.period}</Link> },
+            { key: 'period', header: 'Month', sortable: true, render: (r) => <Link className="font-medium text-cobalt hover:underline" href={`/payroll/${r.id}`}>{r.period}</Link> },
             { key: 'status', header: 'Status', sortable: true, render: (r) => (<span className="flex items-center gap-1.5"><StatusBadge status={r.status} />{r.reopenCount > 0 && <Badge tone="warning">Re-opened ×{r.reopenCount}</Badge>}</span>) },
             { key: 'employees', header: 'Employees', align: 'right', render: (r) => r.employeeCount },
             { key: 'earnings', header: 'Gross', align: 'right', render: (r) => formatMoney(r.totalEarnings) },
@@ -208,11 +208,11 @@ function StartRunDialog({ open, onClose }: { open: boolean; onClose: () => void 
         <div className="flex items-center justify-between gap-3">
           <Input aria-label="Filter employees" placeholder="Filter employees" value={filter} onChange={(e) => setFilter(e.target.value)} className="max-w-xs" />
           <div className="flex gap-2 text-sm">
-            <button className="text-wine hover:underline" onClick={() => setSelected(new Set(elig.data?.map((e) => e.id)))}>
+            <button className="text-cobalt hover:underline" onClick={() => setSelected(new Set(elig.data?.map((e) => e.id)))}>
               Select all
             </button>
             <span className="text-line">|</span>
-            <button className="text-wine hover:underline" onClick={() => setSelected(new Set())}>
+            <button className="text-cobalt hover:underline" onClick={() => setSelected(new Set())}>
               Clear
             </button>
           </div>
@@ -226,10 +226,10 @@ function StartRunDialog({ open, onClose }: { open: boolean; onClose: () => void 
             <ul className="divide-y divide-line">
               {shown.map((e) => (
                 <li key={e.id}>
-                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-blush/25">
+                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-mist/25">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-burgundy"
+                      className="h-4 w-4 accent-primary"
                       checked={selected.has(e.id)}
                       onChange={(ev) => {
                         const s = new Set(selected);

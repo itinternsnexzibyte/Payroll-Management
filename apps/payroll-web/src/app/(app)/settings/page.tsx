@@ -124,7 +124,7 @@ function RulesForm() {
           </Field>
         </div>
         <div className="mt-6 space-y-3 border-t border-line pt-5">
-          <h3 className="text-sm font-semibold text-burgundy">Approval policy</h3>
+          <h3 className="text-sm font-semibold text-primary">Approval policy</h3>
           <Checkbox label="Require a separate Approve step before finalisation" checked={s.requireApprovalStep} onChange={(e) => setS({ ...s, requireApprovalStep: e.target.checked })} />
           <Checkbox label="Approver must be a different person from the one who calculated / submitted" checked={s.separateApprover} onChange={(e) => setS({ ...s, separateApprover: e.target.checked })} />
         </div>

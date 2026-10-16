@@ -10,11 +10,11 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle';
 type Size = 'sm' | 'md';
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-burgundy text-white hover:bg-wine disabled:bg-burgundy/50',
-  secondary: 'border border-wine/40 bg-white text-wine hover:bg-blush/60 hover:border-wine disabled:opacity-50',
-  ghost: 'text-wine hover:bg-blush/60 disabled:opacity-50',
-  subtle: 'bg-blush/70 text-burgundy hover:bg-blush disabled:opacity-50',
-  danger: 'bg-danger text-white hover:bg-danger/90 disabled:opacity-50',
+  primary: 'fx-btn--primary bg-primary text-white disabled:opacity-55 disabled:shadow-none',
+  secondary: 'border border-line bg-white text-primary shadow-[0_1px_2px_rgb(15_23_42/0.05)] hover:border-secondary/60 hover:bg-mist/50 hover:shadow-[0_6px_16px_-10px_rgb(30_64_175/0.4)] disabled:opacity-50',
+  ghost: 'text-cobalt hover:bg-mist/70 disabled:opacity-50',
+  subtle: 'bg-mist text-primary hover:bg-[#dce8f8] disabled:opacity-50',
+  danger: 'bg-danger text-white shadow-[0_6px_16px_-8px_rgb(192_38_45/0.6)] hover:bg-danger/90 disabled:opacity-50',
 };
 
 export function Button({
@@ -33,11 +33,12 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors disabled:cursor-not-allowed',
+        'fx-btn inline-flex select-none items-center justify-center gap-2 rounded-lg font-medium tracking-[0.01em] disabled:cursor-not-allowed',
         size === 'sm' ? 'h-8 px-3 text-sm' : 'h-10 px-4 text-sm',
         variants[variant],
         className,
       )}
+      data-fx={variant === 'primary' ? 'primary' : undefined}
       {...rest}
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : icon}
@@ -51,7 +52,8 @@ export function ButtonLink({ href, variant = 'primary', size = 'md', icon, class
   return (
     <Link
       href={href}
-      className={cn('inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors', size === 'sm' ? 'h-8 px-3 text-sm' : 'h-10 px-4 text-sm', variants[variant], className)}
+      data-fx={variant === 'primary' ? 'primary' : undefined}
+      className={cn('fx-btn inline-flex select-none items-center justify-center gap-2 rounded-lg font-medium tracking-[0.01em]', size === 'sm' ? 'h-8 px-3 text-sm' : 'h-10 px-4 text-sm', variants[variant], className)}
     >
       {icon}
       {children}
@@ -62,7 +64,7 @@ export function ButtonLink({ href, variant = 'primary', size = 'md', icon, class
 // ---------------------------------------------------------------- Form fields
 
 const fieldBase =
-  'block w-full rounded-md border border-line bg-white px-3 text-sm text-ink placeholder:text-muted/70 shadow-[inset_0_1px_0_rgb(0_0_0/0.02)] focus:border-wine focus:outline-none focus:ring-2 focus:ring-blush disabled:bg-canvas disabled:text-muted read-only:bg-canvas';
+  'fx-field block w-full rounded-lg border border-line bg-white px-3 text-sm text-ink placeholder:text-muted/70 shadow-[0_1px_2px_rgb(15_23_42/0.04)] hover:border-[#cbd3e1] focus:border-secondary focus:outline-none disabled:bg-surface disabled:text-muted read-only:bg-surface';
 
 export function Input({ className, invalid, ...rest }: ComponentProps<'input'> & { invalid?: boolean }) {
   return <input className={cn(fieldBase, 'h-10', invalid && 'border-danger focus:border-danger focus:ring-danger-bg', className)} aria-invalid={invalid || undefined} {...rest} />;
@@ -84,7 +86,7 @@ export function Checkbox({ label, className, ...rest }: ComponentProps<'input'> 
   const id = useId();
   return (
     <label htmlFor={rest.id ?? id} className={cn('inline-flex cursor-pointer items-center gap-2 text-sm text-ink', className)}>
-      <input id={rest.id ?? id} type="checkbox" className="h-4 w-4 rounded border-line accent-burgundy" {...rest} />
+      <input id={rest.id ?? id} type="checkbox" className="fx-check" {...rest} />
       {label}
     </label>
   );
@@ -96,9 +98,9 @@ export function Field({ label, htmlFor, error, hint, required, locked, children,
     <div className={cn('space-y-1.5', className)}>
       <label htmlFor={htmlFor} className="flex items-center gap-1 text-sm font-medium text-ink">
         {label}
-        {required && <span className="text-wine" aria-hidden>*</span>}
+        {required && <span className="text-accent-ink" aria-hidden>*</span>}
         {locked && (
-          <span className="ml-1 rounded bg-blush/70 px-1.5 py-0.5 text-[11px] font-medium text-wine" title={locked}>
+          <span className="ml-1 rounded bg-mist/70 px-1.5 py-0.5 text-[11px] font-medium text-cobalt" title={locked}>
             Locked
           </span>
         )}
@@ -121,10 +123,10 @@ export function Field({ label, htmlFor, error, hint, required, locked, children,
 
 export function Card({ className, children, title, actions, padded = true }: { className?: string; children: ReactNode; title?: ReactNode; actions?: ReactNode; padded?: boolean }) {
   return (
-    <section className={cn('rounded-[var(--radius-card)] border border-line bg-white shadow-[var(--shadow-card)]', className)}>
+    <section className={cn('fx-card fx-enter rounded-[var(--radius-card)] border border-line bg-white/95 shadow-[var(--shadow-card)] backdrop-blur-sm', className)}>
       {(title || actions) && (
         <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
-          <h2 className="text-[15px] font-semibold text-burgundy">{title}</h2>
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">{title}</h2>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </header>
       )}
@@ -135,12 +137,12 @@ export function Card({ className, children, title, actions, padded = true }: { c
 
 type Tone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info';
 const tones: Record<Tone, string> = {
-  neutral: 'bg-canvas text-muted border-line',
-  brand: 'bg-blush text-burgundy border-rose/40',
+  neutral: 'bg-surface text-muted border-line',
+  brand: 'bg-mist text-primary border-haze/50',
   success: 'bg-success-bg text-success border-success/20',
   warning: 'bg-warning-bg text-warning border-warning/20',
   danger: 'bg-danger-bg text-danger border-danger/20',
-  info: 'bg-white text-wine border-rose/50',
+  info: 'bg-white text-cobalt border-haze/60',
 };
 
 export function Badge({ tone = 'neutral', children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
@@ -178,7 +180,7 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
 }
 
 const alertStyles = {
-  info: { cls: 'border-rose/50 bg-blush/40 text-burgundy', Icon: Info },
+  info: { cls: 'border-haze/60 bg-mist/60 text-primary', Icon: Info },
   warning: { cls: 'border-warning/30 bg-warning-bg text-warning', Icon: AlertTriangle },
   danger: { cls: 'border-danger/30 bg-danger-bg text-danger', Icon: XCircle },
   success: { cls: 'border-success/30 bg-success-bg text-success', Icon: CheckCircle2 },
@@ -187,7 +189,7 @@ const alertStyles = {
 export function Alert({ tone = 'info', title, children, className }: { tone?: keyof typeof alertStyles; title?: ReactNode; children?: ReactNode; className?: string }) {
   const { cls, Icon } = alertStyles[tone];
   return (
-    <div role={tone === 'danger' ? 'alert' : 'status'} className={cn('flex gap-3 rounded-md border px-4 py-3 text-sm', cls, className)}>
+    <div role={tone === 'danger' ? 'alert' : 'status'} className={cn('fx-enter flex gap-3 rounded-lg border px-4 py-3 text-sm', cls, className)}>
       <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
       <div className="space-y-0.5">
         {title && <p className="font-semibold">{title}</p>}
@@ -200,7 +202,7 @@ export function Alert({ tone = 'info', title, children, className }: { tone?: ke
 export function Spinner({ label = 'Loading…', className }: { label?: string; className?: string }) {
   return (
     <div className={cn('flex items-center justify-center gap-2 py-10 text-sm text-muted', className)} role="status">
-      <Loader2 className="h-5 w-5 animate-spin text-rose" aria-hidden />
+      <Loader2 className="h-5 w-5 animate-spin text-secondary" aria-hidden />
       {label}
     </div>
   );

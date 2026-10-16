@@ -157,7 +157,7 @@ function ImportWizard() {
                 type="file"
                 accept=".csv,.xlsx"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-blush file:px-3 file:py-2 file:text-sm file:font-medium file:text-burgundy hover:file:bg-blush/70"
+                className="block w-full text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-mist file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-mist/70"
               />
             </Field>
             <Button icon={<FileUp className="h-4 w-4" />} disabled={!file} loading={busy === 'upload'} onClick={upload}>
@@ -203,7 +203,7 @@ function ImportWizard() {
               actions={
                 <>
                   <label className="flex items-center gap-2 text-sm text-ink">
-                    <input type="checkbox" className="accent-burgundy" checked={showErrorsOnly} onChange={(e) => setShowErrorsOnly(e.target.checked)} /> Errors only
+                    <input type="checkbox" className="accent-primary" checked={showErrorsOnly} onChange={(e) => setShowErrorsOnly(e.target.checked)} /> Errors only
                   </label>
                   <Button variant="secondary" size="sm" icon={<RotateCcw className="h-4 w-4" />} onClick={() => setPreview(null)}>
                     Start over

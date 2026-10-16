@@ -21,9 +21,9 @@ export function PageHeader({ title, description, breadcrumbs, actions, badge }: 
           <ol className="flex flex-wrap items-center gap-1 text-xs text-muted">
             {breadcrumbs.map((c, i) => (
               <li key={i} className="flex items-center gap-1">
-                {i > 0 && <CrumbSep className="h-3 w-3 text-rose" aria-hidden />}
+                {i > 0 && <CrumbSep className="h-3 w-3 text-haze" aria-hidden />}
                 {c.href ? (
-                  <Link href={c.href} className="hover:text-wine hover:underline">
+                  <Link href={c.href} className="hover:text-cobalt hover:underline">
                     {c.label}
                   </Link>
                 ) : (
@@ -39,7 +39,7 @@ export function PageHeader({ title, description, breadcrumbs, actions, badge }: 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[22px] font-semibold tracking-tight text-burgundy">{title}</h1>
+            <h1 className="text-[22px] font-semibold tracking-tight text-primary">{title}</h1>
             {badge}
           </div>
           {description && <p className="mt-1 max-w-3xl text-sm text-muted">{description}</p>}
@@ -55,7 +55,7 @@ export function PageHeader({ title, description, breadcrumbs, actions, badge }: 
 export function EmptyState({ title, hint, action, icon }: { title: string; hint?: ReactNode; action?: ReactNode; icon?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-      <div className="mb-1 rounded-full bg-blush/60 p-3 text-wine">{icon ?? <FileX2 className="h-6 w-6" aria-hidden />}</div>
+      <div className="mb-1 rounded-full bg-mist/60 p-3 text-cobalt">{icon ?? <FileX2 className="h-6 w-6" aria-hidden />}</div>
       <p className="text-sm font-semibold text-ink">{title}</p>
       {hint && <p className="max-w-md text-sm text-muted">{hint}</p>}
       {action && <div className="mt-2">{action}</div>}
@@ -126,7 +126,7 @@ export function DataTable<T>({
       <table className="w-full border-collapse text-sm">
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
-          <tr className="border-b border-line bg-blush/35 text-left">
+          <tr className="border-b border-line bg-surface text-left">
             {columns.map((c) => {
               const active = sortBy === c.key;
               return (
@@ -134,12 +134,12 @@ export function DataTable<T>({
                   key={c.key}
                   scope="col"
                   aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
-                  className={cn('whitespace-nowrap px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-burgundy', c.align === 'right' && 'text-right', c.align === 'center' && 'text-center', c.headerClassName)}
+                  className={cn('whitespace-nowrap px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary', c.align === 'right' && 'text-right', c.align === 'center' && 'text-center', c.headerClassName)}
                 >
                   {c.sortable && onSort ? (
-                    <button className={cn('inline-flex items-center gap-1 hover:text-wine', c.align === 'right' && 'flex-row-reverse')} onClick={() => onSort(c.key)}>
+                    <button className={cn('inline-flex items-center gap-1 hover:text-cobalt', c.align === 'right' && 'flex-row-reverse')} onClick={() => onSort(c.key)}>
                       {c.header}
-                      {active ? sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 text-rose" />}
+                      {active ? sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 text-haze" />}
                     </button>
                   ) : (
                     c.header
@@ -155,7 +155,7 @@ export function DataTable<T>({
               <tr key={`sk${i}`} className="border-b border-line/70">
                 {columns.map((c) => (
                   <td key={c.key} className="px-4 py-3">
-                    <div className="h-3.5 w-full max-w-[160px] animate-pulse rounded bg-blush/60" />
+                    <div className="h-3.5 w-full max-w-[160px] animate-pulse rounded bg-mist/60" />
                   </td>
                 ))}
               </tr>
@@ -180,7 +180,7 @@ export function DataTable<T>({
               return (
                 <tr
                   key={key}
-                  className={cn('border-b border-line/70 transition-colors last:border-0 hover:bg-blush/30', href && 'cursor-pointer', selectedKey === key && 'bg-blush/50')}
+                  className={cn('fx-row border-b border-line/70 last:border-0 hover:bg-mist/50', href && 'cursor-pointer', selectedKey === key && 'bg-mist/50')}
                   onClick={(e) => {
                     if (!href) return;
                     const target = e.target as HTMLElement;
@@ -243,7 +243,7 @@ export function SearchInput({ value, onChange, placeholder = 'Search…', classN
   }, [text, value, onChange]);
   return (
     <div className={cn('relative w-full sm:w-72', className)}>
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rose" aria-hidden />
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-haze" aria-hidden />
       <Input type="search" aria-label={label} placeholder={placeholder} value={text} onChange={(e) => setText(e.target.value)} className="pl-9" />
     </div>
   );
@@ -293,12 +293,12 @@ export function useListParams<F extends Record<string, string>>(defaults: { sort
 
 export function StatCard({ label, value, hint, href, icon, tone = 'default' }: { label: string; value: ReactNode; hint?: ReactNode; href?: string; icon?: ReactNode; tone?: 'default' | 'attention' }) {
   const body = (
-    <div className={cn('group h-full rounded-[var(--radius-card)] border bg-white p-4 shadow-[var(--shadow-card)] transition-colors', tone === 'attention' ? 'border-wine/40' : 'border-line', href && 'hover:border-wine/50 hover:bg-blush/20')}>
+    <div className={cn('fx-card fx-enter group h-full rounded-[var(--radius-card)] border bg-white/95 p-4 shadow-[var(--shadow-card)] backdrop-blur-sm', tone === 'attention' ? 'border-cobalt/40' : 'border-line', href && 'hover:-translate-y-0.5 hover:border-secondary/50')}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>
-        {icon && <span className="rounded-md bg-blush/60 p-1.5 text-wine">{icon}</span>}
+        {icon && <span className="rounded-md bg-mist/60 p-1.5 text-cobalt">{icon}</span>}
       </div>
-      <p className="mt-2 text-2xl font-semibold tabular-nums text-burgundy">{value}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums text-primary">{value}</p>
       {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
     </div>
   );
@@ -322,7 +322,7 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: 
             role="tab"
             aria-selected={value === t.id}
             onClick={() => onChange(t.id)}
-            className={cn('-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors', value === t.id ? 'border-burgundy text-burgundy' : 'border-transparent text-muted hover:border-rose/60 hover:text-wine')}
+            className={cn('-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors', value === t.id ? 'border-primary text-primary' : 'border-transparent text-muted hover:border-haze/60 hover:text-cobalt')}
           >
             {t.label}
           </button>

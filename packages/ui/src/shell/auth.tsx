@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ApiError, get, post, setUnauthenticatedHandler } from '../lib/api';
 import { ToastProvider } from '../components/feedback';
+import { InteractionEffects } from '../components/effects';
 
 export interface Me {
   id: string;
@@ -39,7 +40,10 @@ export function Providers({ children }: { children: ReactNode }) {
   );
   return (
     <QueryClientProvider client={client}>
-      <ToastProvider>{children}</ToastProvider>
+      <ToastProvider>
+        <InteractionEffects />
+        {children}
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

@@ -116,7 +116,7 @@ function EmployeeList() {
             />
           }
           columns={[
-            { key: 'employeeCode', header: 'Employee ID', sortable: true, render: (e) => <Link className="font-medium text-wine hover:underline" href={`/employees/${e.id}`}>{e.employeeCode}</Link> },
+            { key: 'employeeCode', header: 'Employee ID', sortable: true, render: (e) => <Link className="font-medium text-cobalt hover:underline" href={`/employees/${e.id}`}>{e.employeeCode}</Link> },
             { key: 'fullName', header: 'Name', sortable: true, render: (e) => e.fullName },
             { key: 'department', header: 'Department', render: (e) => e.department?.name ?? '—' },
             { key: 'designation', header: 'Designation', render: (e) => e.designation?.name ?? '—' },

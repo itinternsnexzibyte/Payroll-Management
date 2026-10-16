@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, MailCheck } from 'lucide-react';
 import { ApiError, get, post } from '../lib/api';
 import { cn } from '../lib/format';
+import { AmbientBackground, BrandPanelArt } from '../components/effects';
 import { Alert, Button, Field, Input } from '../components/primitives';
 
 export interface SignupConfig {
@@ -32,9 +33,9 @@ function Stepper({ step }: { step: Step }) {
     <ol className="flex items-center gap-2" aria-label="Sign-up progress">
       {STEPS.map((s, i) => (
         <li key={s.id} className="flex items-center gap-2" aria-current={i === idx ? 'step' : undefined}>
-          <span className={cn('flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold', i < idx ? 'bg-wine text-white' : i === idx ? 'bg-burgundy text-white' : 'bg-blush text-muted')}>{i + 1}</span>
-          <span className={cn('text-xs font-medium', i === idx ? 'text-burgundy' : 'text-muted')}>{s.label}</span>
-          {i < STEPS.length - 1 && <span className="h-px w-6 bg-line" aria-hidden />}
+          <span className={cn('flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-all duration-500', i < idx ? 'bg-accent text-white' : i === idx ? 'fx-step-current bg-primary text-white' : 'bg-mist text-muted')}>{i + 1}</span>
+          <span className={cn('text-xs font-medium', i === idx ? 'text-primary' : i < idx ? 'text-accent-ink' : 'text-muted')}>{s.label}</span>
+          {i < STEPS.length - 1 && <span className={cn('h-0.5 w-6 rounded-full transition-colors duration-500', i < idx ? 'bg-accent' : 'bg-line')} aria-hidden />}
         </li>
       ))}
     </ol>
@@ -150,32 +151,32 @@ export function SignupScreen({ appName, tagline, company, logo, features }: { ap
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-burgundy p-12 text-white lg:flex">
-        <div className="flex items-center gap-3">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-navy p-12 text-white lg:flex">
+        <BrandPanelArt />
+        <div className="relative z-10 flex items-center gap-3">
           {logo}
-          <span className="text-xs uppercase tracking-[0.18em] text-rose">{company}</span>
+          <span className="text-xs uppercase tracking-[0.18em] text-accent">{company}</span>
         </div>
-        <div className="relative z-10 max-w-md">
-          <h1 className="text-3xl font-semibold leading-tight">{appName}</h1>
-          <p className="mt-3 text-[15px] leading-relaxed text-blush/90">{tagline}</p>
-          <ul className="mt-8 space-y-3 text-sm text-blush/90">
+        <div className="fx-enter relative z-10 max-w-md">
+          <h1 className="text-4xl font-semibold leading-[1.1] tracking-[-0.02em]">{appName}</h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-haze">{tagline}</p>
+          <ul className="mt-8 space-y-3 text-sm text-white/85">
             {features.map((f) => (
               <li key={f} className="flex items-start gap-3">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose" aria-hidden />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_8px_rgb(12_184_132/0.9)]" aria-hidden />
                 {f}
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-xs text-rose/80">Your email address is verified before an account is created.</p>
-        <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full border border-wine/60" aria-hidden />
-        <div className="pointer-events-none absolute -bottom-16 -right-16 h-64 w-64 rounded-full border border-wine/40" aria-hidden />
-      </div>
-      <div className="flex items-center justify-center bg-white px-6 py-12">
-        <div className="w-full max-w-sm space-y-5">
+        <p className="relative z-10 text-xs text-haze/80">Your email address is verified before an account is created.</p>
+                      </div>
+      <div className="relative flex items-center justify-center overflow-hidden bg-surface px-6 py-12">
+        <AmbientBackground className="!absolute" />
+        <div className="fx-enter relative z-10 w-full max-w-sm space-y-5 rounded-2xl border border-white bg-white/80 p-8 shadow-[0_30px_60px_-30px_rgb(30_64_175/0.35)] backdrop-blur-xl">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose lg:hidden">{company}</p>
-            <h2 className="mt-1 text-2xl font-semibold text-burgundy">Create your account</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-ink lg:hidden">{company}</p>
+            <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-ink">Create your account</h2>
             <p className="mt-1 text-sm text-muted">for {appName}</p>
           </div>
 
@@ -222,10 +223,10 @@ export function SignupScreen({ appName, tagline, company, logo, features }: { ap
                     Verify code
                   </Button>
                   <div className="flex items-center justify-between text-sm">
-                    <button type="button" className="text-wine hover:underline" onClick={() => (setStep('email'), setErrors({}), setInfo(null))}>
+                    <button type="button" className="text-cobalt hover:underline" onClick={() => (setStep('email'), setErrors({}), setInfo(null))}>
                       Change email
                     </button>
-                    <button type="button" className="text-wine hover:underline disabled:text-muted disabled:no-underline" disabled={cooldown > 0 || busy} onClick={() => sendCode()}>
+                    <button type="button" className="text-cobalt hover:underline disabled:text-muted disabled:no-underline" disabled={cooldown > 0 || busy} onClick={() => sendCode()}>
                       {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
                     </button>
                   </div>
@@ -255,7 +256,7 @@ export function SignupScreen({ appName, tagline, company, logo, features }: { ap
               {step === 'done' && (
                 <div className="space-y-4 text-center">
                   <CheckCircle2 className="mx-auto h-10 w-10 text-success" aria-hidden />
-                  <h3 className="text-lg font-semibold text-burgundy">Account created</h3>
+                  <h3 className="text-lg font-semibold text-primary">Account created</h3>
                   <p className="text-sm text-muted">
                     {requiresApproval ? 'An administrator must approve your account before you can sign in.' : 'Your account is ready. Sign in with your email and password.'}
                   </p>
@@ -270,7 +271,7 @@ export function SignupScreen({ appName, tagline, company, logo, features }: { ap
           {step !== 'done' && (
             <p className="text-center text-sm text-muted">
               Already have an account?{' '}
-              <Link href="/login" className="font-medium text-wine hover:underline">
+              <Link href="/login" className="font-medium text-cobalt hover:underline">
                 Sign in
               </Link>
             </p>

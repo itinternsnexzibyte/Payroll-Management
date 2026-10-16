@@ -169,7 +169,7 @@ export function InputGrid({ runId, editable, onSaved }: { runId: string; editabl
         <Input className="h-9 max-w-xs" aria-label="Filter employees" placeholder="Filter employees" value={filter} onChange={(e) => setFilter(e.target.value)} />
         <p className="text-xs text-muted">Arrow keys / Enter move between cells · paste a block straight from Excel · Ctrl+S saves</p>
         <div className="flex-1" />
-        {dirty.size > 0 && <span className="text-xs font-medium text-wine">{dirty.size} unsaved change(s)</span>}
+        {dirty.size > 0 && <span className="text-xs font-medium text-cobalt">{dirty.size} unsaved change(s)</span>}
         {editable && (
           <>
             <Button size="sm" variant="secondary" icon={<Undo2 className="h-4 w-4" />} disabled={!dirty.size || saving} onClick={discard}>
@@ -189,20 +189,20 @@ export function InputGrid({ runId, editable, onSaved }: { runId: string; editabl
       )}
       <div className="max-h-[60vh] overflow-auto">
         <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 z-10 bg-blush">
+          <thead className="sticky top-0 z-10 bg-mist">
             <tr>
-              <th className="sticky left-0 z-20 min-w-56 border-b border-r border-line bg-blush px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-burgundy">Employee</th>
+              <th className="sticky left-0 z-20 min-w-56 border-b border-r border-line bg-mist px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-primary">Employee</th>
               {cols.map((c) => (
-                <th key={c.key} className="min-w-36 border-b border-line px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-burgundy" title={c.key}>
+                <th key={c.key} className="min-w-36 border-b border-line px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-primary" title={c.key}>
                   {c.label}
-                  {c.mandatory && <span className="ml-0.5 text-wine">*</span>}
+                  {c.mandatory && <span className="ml-0.5 text-cobalt">*</span>}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((r, ri) => (
-              <tr key={r.employeeId} className="hover:bg-blush/15">
+              <tr key={r.employeeId} className="hover:bg-mist/15">
                 <th scope="row" className="sticky left-0 z-[1] border-b border-r border-line bg-white px-3 py-1.5 text-left font-normal">
                   <span className="font-medium text-ink">{r.employeeCode}</span> <span className="text-muted">· {r.employeeName}</span>
                 </th>
@@ -227,9 +227,9 @@ export function InputGrid({ runId, editable, onSaved }: { runId: string; editabl
                         onKeyDown={(e) => onKey(e, ri, ci)}
                         onPaste={(e) => editable && onPaste(e, ri, ci)}
                         className={cn(
-                          'h-9 w-full border-0 bg-transparent px-3 text-ink outline-none focus:bg-white focus:ring-2 focus:ring-inset focus:ring-wine',
+                          'h-9 w-full border-0 bg-transparent px-3 text-ink outline-none focus:bg-white focus:ring-2 focus:ring-inset focus:ring-cobalt',
                           c.dataType === 'NUMBER' && 'text-right tabular-nums',
-                          dirty.has(id) && 'bg-blush/40',
+                          dirty.has(id) && 'bg-mist/40',
                           missing && !err && 'bg-warning-bg/70',
                           err && 'bg-danger-bg ring-1 ring-inset ring-danger',
                         )}

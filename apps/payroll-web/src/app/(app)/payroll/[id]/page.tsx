@@ -58,8 +58,8 @@ function Stepper({ status, requireApproval }: { status: RunStatus; requireApprov
           <span
             className={cn(
               'flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium',
-              i < idx && 'border-wine/30 bg-blush/50 text-wine',
-              i === idx && 'border-burgundy bg-burgundy text-white',
+              i < idx && 'border-cobalt/30 bg-mist/50 text-cobalt',
+              i === idx && 'border-primary bg-primary text-white',
               i > idx && 'border-line bg-white text-muted',
             )}
             aria-current={i === idx ? 'step' : undefined}
@@ -200,7 +200,7 @@ function RunWorkspace() {
           ].map(([l, v]) => (
             <div key={l} className="rounded-[var(--radius-card)] border border-line bg-white p-4 shadow-[var(--shadow-card)]">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">{l}</p>
-              <p className="mt-1 text-xl font-semibold tabular-nums text-burgundy">{formatMoney(v)}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums text-primary">{formatMoney(v)}</p>
             </div>
           ))}
         </div>
@@ -237,7 +237,7 @@ function RunWorkspace() {
               <p>{confirmCopy[confirm].message}</p>
               {confirm === 'submit' && warnings > 0 && (
                 <label className="flex items-center gap-2 font-medium">
-                  <input type="checkbox" className="accent-burgundy" checked={ackWarnings} onChange={(e) => setAckWarnings(e.target.checked)} /> I have reviewed the warnings
+                  <input type="checkbox" className="accent-primary" checked={ackWarnings} onChange={(e) => setAckWarnings(e.target.checked)} /> I have reviewed the warnings
                 </label>
               )}
             </div>
@@ -279,7 +279,7 @@ function Results({ run }: { run: RunDetail }) {
             header: 'Employee',
             render: (e) => (
               <button className="text-left" onClick={() => setDetail(e.employeeId)}>
-                <span className="font-medium text-wine hover:underline">{e.employeeCode}</span>
+                <span className="font-medium text-cobalt hover:underline">{e.employeeCode}</span>
                 <span className="block text-xs text-muted">{e.employeeName}</span>
               </button>
             ),
@@ -292,7 +292,7 @@ function Results({ run }: { run: RunDetail }) {
           { key: 'net', header: 'Net pay', align: 'right', render: (e) => <strong className={cn(e.net?.startsWith('-') && 'text-danger')}>{formatMoney(e.net)}</strong> },
         ]}
       />
-      <div className="flex justify-end gap-8 border-t border-line bg-blush/25 px-4 py-3 text-sm">
+      <div className="flex justify-end gap-8 border-t border-line bg-mist/25 px-4 py-3 text-sm">
         <span>
           Gross <strong className="tabular-nums">{formatMoney(run.totalEarnings)}</strong>
         </span>
@@ -300,7 +300,7 @@ function Results({ run }: { run: RunDetail }) {
           Deductions <strong className="tabular-nums">{formatMoney(run.totalDeductions)}</strong>
         </span>
         <span>
-          Net <strong className="tabular-nums text-burgundy">{formatMoney(run.totalNet)}</strong>
+          Net <strong className="tabular-nums text-primary">{formatMoney(run.totalNet)}</strong>
         </span>
       </div>
       {detail && <EmployeeDetail runId={run.id} employeeId={detail} onClose={() => setDetail(null)} />}
@@ -345,7 +345,7 @@ function EmployeeDetail({ runId, employeeId, onClose }: { runId: string; employe
             </Alert>
           ))}
           <table className="w-full text-sm">
-            <thead className="bg-blush/35 text-left text-xs uppercase tracking-wide text-burgundy">
+            <thead className="bg-mist/35 text-left text-xs uppercase tracking-wide text-primary">
               <tr>
                 <th className="px-3 py-2">Component</th>
                 <th className="px-3 py-2">How calculated</th>
@@ -481,8 +481,8 @@ function Timeline({ run }: { run: RunDetail }) {
   return (
     <ol className="space-y-0 px-5 py-4">
       {run.events.map((e, i) => (
-        <li key={i} className="relative border-l-2 border-blush pb-5 pl-5 last:pb-0">
-          <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full border-2 border-white bg-wine" aria-hidden />
+        <li key={i} className="relative border-l-2 border-mist pb-5 pl-5 last:pb-0">
+          <span className="absolute -left-[7px] top-1 h-3 w-3 rounded-full border-2 border-white bg-cobalt" aria-hidden />
           <p className="text-sm font-medium text-ink">
             {humanize(e.action)} <span className="font-normal text-muted">→ {humanize(e.toStatus)}</span>
           </p>

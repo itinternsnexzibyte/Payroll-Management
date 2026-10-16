@@ -8,6 +8,7 @@ import { Alert, Button, Field, Input } from '../components/primitives';
 import { useSignupConfig } from './signup';
 import { useToast } from '../components/feedback';
 import { useAuth } from './auth';
+import { AmbientBackground, BrandPanelArt } from '../components/effects';
 
 /** Sign-in screen with lockout / expiry messaging. */
 export function LoginScreen({ appName, tagline, company, logo, features }: { appName: string; tagline: string; company: string; logo: ReactNode; features: string[] }) {
@@ -46,32 +47,32 @@ export function LoginScreen({ appName, tagline, company, logo, features }: { app
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-burgundy p-12 text-white lg:flex">
-        <div className="flex items-center gap-3">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-navy p-12 text-white lg:flex">
+        <BrandPanelArt />
+        <div className="relative z-10 flex items-center gap-3">
           {logo}
-          <span className="text-xs uppercase tracking-[0.18em] text-rose">{company}</span>
+          <span className="text-xs uppercase tracking-[0.18em] text-accent">{company}</span>
         </div>
-        <div className="relative z-10 max-w-md">
-          <h1 className="text-3xl font-semibold leading-tight">{appName}</h1>
-          <p className="mt-3 text-[15px] leading-relaxed text-blush/90">{tagline}</p>
-          <ul className="mt-8 space-y-3 text-sm text-blush/90">
+        <div className="fx-enter relative z-10 max-w-md">
+          <h1 className="text-4xl font-semibold leading-[1.1] tracking-[-0.02em]">{appName}</h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-haze">{tagline}</p>
+          <ul className="mt-8 space-y-3 text-sm text-white/85">
             {features.map((f) => (
               <li key={f} className="flex items-start gap-3">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose" aria-hidden />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_8px_rgb(12_184_132/0.9)]" aria-hidden />
                 {f}
               </li>
             ))}
           </ul>
         </div>
-        <p className="text-xs text-rose/80">Authorised users only. Activity is recorded in the audit trail.</p>
-        <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full border border-wine/60" aria-hidden />
-        <div className="pointer-events-none absolute -bottom-16 -right-16 h-64 w-64 rounded-full border border-wine/40" aria-hidden />
-      </div>
-      <div className="flex items-center justify-center bg-white px-6 py-12">
-        <form onSubmit={submit} className="w-full max-w-sm space-y-5" noValidate>
+        <p className="relative z-10 text-xs text-haze/80">Authorised users only. Activity is recorded in the audit trail.</p>
+                      </div>
+      <div className="relative flex items-center justify-center overflow-hidden bg-surface px-6 py-12">
+        <AmbientBackground className="!absolute" />
+        <form onSubmit={submit} className="fx-enter relative z-10 w-full max-w-sm space-y-5 rounded-2xl border border-white bg-white/80 p-8 shadow-[0_30px_60px_-30px_rgb(30_64_175/0.35)] backdrop-blur-xl" noValidate>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose lg:hidden">{company}</p>
-            <h2 className="mt-1 text-2xl font-semibold text-burgundy">Sign in</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-ink lg:hidden">{company}</p>
+            <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-ink">Sign in</h2>
             <p className="mt-1 text-sm text-muted">to {appName}</p>
           </div>
           {expired && <Alert tone="warning">Your session expired. Please sign in again.</Alert>}
@@ -89,7 +90,7 @@ export function LoginScreen({ appName, tagline, company, logo, features }: { app
           {signupCfg.data?.enabled && (
             <p className="border-t border-line pt-4 text-center text-sm text-muted">
               New here?{' '}
-              <Link href="/signup" className="font-medium text-wine hover:underline">
+              <Link href="/signup" className="font-medium text-cobalt hover:underline">
                 Create an account
               </Link>
             </p>
@@ -135,7 +136,7 @@ export function ChangePasswordScreen() {
   return (
     <div className="mx-auto max-w-md">
       <div className="rounded-[var(--radius-card)] border border-line bg-white p-6 shadow-[var(--shadow-card)]">
-        <h1 className="text-xl font-semibold text-burgundy">Change password</h1>
+        <h1 className="text-xl font-semibold text-primary">Change password</h1>
         {forced && (
           <Alert tone="warning" className="mt-4">
             For security, you must set a new password before continuing.
@@ -157,7 +158,7 @@ export function ChangePasswordScreen() {
                 Sign out
               </Button>
             ) : (
-              <Link href="/" className="inline-flex h-10 items-center px-2 text-sm text-wine hover:underline">
+              <Link href="/" className="inline-flex h-10 items-center px-2 text-sm text-cobalt hover:underline">
                 Cancel
               </Link>
             )}
@@ -174,10 +175,10 @@ export function ChangePasswordScreen() {
 export function NotFoundScreen() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
-      <p className="text-5xl font-semibold text-rose">404</p>
-      <h1 className="text-xl font-semibold text-burgundy">Page not found</h1>
+      <p className="text-5xl font-semibold text-haze">404</p>
+      <h1 className="text-xl font-semibold text-primary">Page not found</h1>
       <p className="max-w-sm text-sm text-muted">The page you are looking for does not exist or has moved.</p>
-      <Link href="/" className="text-sm font-medium text-wine hover:underline">
+      <Link href="/" className="text-sm font-medium text-cobalt hover:underline">
         Go to dashboard
       </Link>
     </div>
@@ -187,7 +188,7 @@ export function NotFoundScreen() {
 export function ErrorScreen({ reset }: { reset: () => void }) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
-      <h1 className="text-xl font-semibold text-burgundy">Something went wrong</h1>
+      <h1 className="text-xl font-semibold text-primary">Something went wrong</h1>
       <p className="max-w-sm text-sm text-muted">An unexpected error occurred while showing this page. Your saved data is safe.</p>
       <Button onClick={reset}>Try again</Button>
     </div>

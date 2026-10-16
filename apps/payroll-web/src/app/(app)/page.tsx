@@ -72,8 +72,8 @@ export default function DashboardPage() {
               <ul className="grid gap-2">
                 {quick.map((x) => (
                   <li key={x.href}>
-                    <Link href={x.href} className="flex items-center gap-3 rounded-md border border-line px-3 py-2.5 text-sm font-medium text-ink hover:border-wine/40 hover:bg-blush/30">
-                      <x.icon className="h-4 w-4 text-rose" /> {x.label}
+                    <Link href={x.href} className="flex items-center gap-3 rounded-md border border-line px-3 py-2.5 text-sm font-medium text-ink hover:border-cobalt/40 hover:bg-mist/30">
+                      <x.icon className="h-4 w-4 text-haze" /> {x.label}
                     </Link>
                   </li>
                 ))}
@@ -89,7 +89,7 @@ export default function DashboardPage() {
                 <ul className="divide-y divide-line">
                   {d.recentFinalised.map((r) => (
                     <li key={r.id}>
-                      <Link href={`/payroll/${r.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-blush/25">
+                      <Link href={`/payroll/${r.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-mist/25">
                         <span>
                           <span className="block text-sm font-medium text-ink">{r.period}</span>
                           <span className="block text-xs text-muted">
@@ -111,7 +111,7 @@ export default function DashboardPage() {
                   {d.recentActivity.map((a, i) => (
                     <li key={i} className="flex items-start justify-between gap-3 px-5 py-3">
                       <span className="min-w-0">
-                        <Link href={`/payroll/${a.runId}`} className="text-sm font-medium text-ink hover:text-wine">
+                        <Link href={`/payroll/${a.runId}`} className="text-sm font-medium text-ink hover:text-cobalt">
                           {a.period}
                         </Link>
                         <span className="ml-2">

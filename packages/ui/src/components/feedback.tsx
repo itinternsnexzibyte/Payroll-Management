@@ -33,10 +33,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               role={t.tone === 'error' ? 'alert' : 'status'}
               className={cn(
                 'pointer-events-auto flex items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm shadow-lg',
-                t.tone === 'success' ? 'border-success/30' : t.tone === 'error' ? 'border-danger/30' : 'border-rose/40',
+                t.tone === 'success' ? 'border-success/30' : t.tone === 'error' ? 'border-danger/30' : 'border-haze/40',
               )}
             >
-              <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', t.tone === 'success' ? 'text-success' : t.tone === 'error' ? 'text-danger' : 'text-wine')} aria-hidden />
+              <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', t.tone === 'success' ? 'text-success' : t.tone === 'error' ? 'text-danger' : 'text-cobalt')} aria-hidden />
               <p className="flex-1 text-ink">{t.message}</p>
               <button className="text-muted hover:text-ink" onClick={() => setItems((x) => x.filter((y) => y.id !== t.id))} aria-label="Dismiss notification">
                 <X className="h-4 w-4" />
@@ -96,13 +96,13 @@ export function Dialog({ open, onClose, title, children, footer, width = 'md' }:
   if (!open) return null;
   const w = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-5xl' }[width];
   return (
-    <div className="no-print fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-burgundy/30 p-4 pt-[8vh] backdrop-blur-[1px]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="no-print fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-primary/30 p-4 pt-[8vh] backdrop-blur-[1px]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className={cn('w-full rounded-xl border border-line bg-white shadow-2xl', w)}>
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-          <h2 id={titleId} className="text-base font-semibold text-burgundy">
+          <h2 id={titleId} className="text-base font-semibold text-primary">
             {title}
           </h2>
-          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-blush/60 hover:text-ink" aria-label="Close dialog">
+          <button onClick={onClose} className="rounded p-1 text-muted hover:bg-mist/60 hover:text-ink" aria-label="Close dialog">
             <X className="h-4 w-4" />
           </button>
         </div>

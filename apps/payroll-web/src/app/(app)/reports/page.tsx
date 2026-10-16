@@ -111,7 +111,7 @@ function ReportView({ path, filename }: { path: string; filename: string }) {
         {r.totals && (
           <table className="w-full text-sm">
             <tbody>
-              <tr className="border-t-2 border-burgundy/20 bg-blush/35 font-semibold">
+              <tr className="border-t-2 border-primary/20 bg-mist/35 font-semibold">
                 {r.columns.map((c) => (
                   <td key={c.key} className={`px-4 py-2 ${c.numeric ? 'text-right tabular-nums' : ''}`}>
                     {c.numeric ? formatMoney(r.totals![c.key] as string) : r.totals![c.key]}

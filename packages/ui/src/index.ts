@@ -3,6 +3,7 @@ export * from './lib/format';
 export * from './components/primitives';
 export * from './components/feedback';
 export * from './components/data';
+export * from './components/effects';
 export * from './shell/auth';
 export * from './shell/app-shell';
 export * from './shell/screens';
