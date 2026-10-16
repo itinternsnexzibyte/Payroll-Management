@@ -55,9 +55,11 @@ function ComponentsList() {
           )
         }
       />
-      <Alert tone="warning" className="mb-4" title="Formulas awaiting the client workbook">
-        No client formula has been implemented yet. Components using the &quot;Approved formula&quot; basis stay blocked (they raise an exception on calculation) until the formula is coded from the workbook and tested against sample months.
-      </Alert>
+      {q.data?.items.some((c) => c.basis === 'FORMULA') && (
+        <Alert tone="warning" className="mb-4" title="Formulas awaiting the client workbook">
+          No client formula has been implemented yet. Components using the &quot;Approved formula&quot; basis stay blocked (they raise an exception on calculation) until the formula is coded from the workbook and tested against sample months.
+        </Alert>
+      )}
       <Card padded={false}>
         <DataTable<SalaryComponent>
           rows={q.data?.items}
