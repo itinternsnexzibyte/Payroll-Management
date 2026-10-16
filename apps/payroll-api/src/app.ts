@@ -30,7 +30,15 @@ export function createApp() {
     },
     audit,
   );
-  const signupConfig = { appName: 'Payroll Management', enabled: config.SIGNUP_ENABLED, requireApproval: config.SIGNUP_REQUIRE_APPROVAL, allowedDomains: config.SIGNUP_ALLOWED_DOMAINS };
+  const signupConfig = {
+    appName: 'Payroll Management',
+    enabled: config.SIGNUP_ENABLED,
+    requireApproval: config.SIGNUP_REQUIRE_APPROVAL,
+    allowedDomains: config.SIGNUP_ALLOWED_DOMAINS,
+    adminSignup: config.ADMIN_SIGNUP,
+    // Self-registered accounts get the Payroll User role; Administrator requests wait for approval.
+    roles: { user: 'PAYROLL_USER', admin: 'ADMIN' },
+  };
   const signup = new SignupService(signupStore, mailer, audit, signupConfig);
   return createBaseApp({
     name: 'Payroll Management',

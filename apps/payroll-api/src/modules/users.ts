@@ -142,6 +142,41 @@ export function registerUserRoutes(r: ApiRegistry) {
     },
   });
 
+  // ---- Account requests from self-service sign-up (status PENDING) ----
+  for (const action of ['approve', 'reject'] as const) {
+    r.add({
+      method: 'post',
+      path: `/users/:id/${action}`,
+      tag: 'Users & Roles',
+      summary: action === 'approve' ? 'Approve a pending account request (activates it with its requested role)' : 'Reject a pending account request (the account is disabled, never deleted)',
+      permission: 'users.manage',
+      params: idParam,
+      body: z.object({ reason: z.string().trim().max(500).optional() }),
+      handler: async ({ params, body, user, ip }) => {
+        return prisma.$transaction(async (tx) => {
+          const target = await tx.user.findUnique({ where: { id: params.id }, include: { role: true } });
+          if (!target) throw notFound('User');
+          const res = await tx.user.updateMany({
+            where: { id: params.id, status: 'PENDING' },
+            data: { status: action === 'approve' ? 'ACTIVE' : 'DISABLED', updatedById: user.id },
+          });
+          if (res.count !== 1) throw new AppError('CONFLICT', 'This account request has already been handled.');
+          await audit.tx(tx, {
+            actorId: user.id,
+            action: action === 'approve' ? 'user.approved' : 'user.rejected',
+            entity: 'user',
+            entityId: params.id,
+            before: { status: 'PENDING' },
+            after: { status: action === 'approve' ? 'ACTIVE' : 'DISABLED', role: target.role.code },
+            metadata: body.reason ? { reason: body.reason } : undefined,
+            ip,
+          });
+          return tx.user.findUniqueOrThrow({ where: { id: params.id }, select: userSelect });
+        });
+      },
+    });
+  }
+
   r.add({
     method: 'get',
     path: '/roles',

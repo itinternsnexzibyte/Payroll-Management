@@ -1,9 +1,6 @@
 import type { SignupStore } from '@nexzi/server-core';
 import { prisma } from './db';
 
-/** Role given to self-registered accounts; the Administrator can change it when approving. */
-const DEFAULT_SIGNUP_ROLE = 'PAYROLL_USER';
-
 export const signupStore: SignupStore = {
   async userExists(email) {
     return Boolean(await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } }));
@@ -28,7 +25,7 @@ export const signupStore: SignupStore = {
   },
   completeSignup(d) {
     return prisma.$transaction(async (tx) => {
-      const role = await tx.role.findUniqueOrThrow({ where: { code: DEFAULT_SIGNUP_ROLE } });
+      const role = await tx.role.findUniqueOrThrow({ where: { code: d.roleCode } });
       const consumed = await tx.emailVerification.updateMany({ where: { id: d.verificationId, consumedAt: null }, data: { consumedAt: new Date() } });
       if (consumed.count !== 1) throw new Error('Verification already used');
       return tx.user.create({ data: { email: d.email, name: d.name, passwordHash: d.passwordHash, roleId: role.id, status: d.active ? 'ACTIVE' : 'PENDING' }, select: { id: true } });

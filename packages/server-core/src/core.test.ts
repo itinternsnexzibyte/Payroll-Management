@@ -6,6 +6,7 @@ import { dec, roundTo } from './money';
 import { isoDate } from './pagination';
 import { parseTrustProxy } from './app';
 import { createMailer, parseAddress } from './mailer';
+import { SignupService } from './signup';
 
 describe('spreadsheet safety', () => {
   it('neutralises formula injection', () => {
@@ -59,5 +60,20 @@ describe('deployment configuration', () => {
   it('parses sender addresses', () => {
     expect(parseAddress('NexziByte <we@nexzibyte.com>')).toEqual({ name: 'NexziByte', email: 'we@nexzibyte.com' });
     expect(parseAddress('we@nexzibyte.com')).toEqual({ email: 'we@nexzibyte.com' });
+  });
+});
+
+describe('administrator sign-up switch', () => {
+  it('refuses Administrator requests when ADMIN_SIGNUP is off, before touching any token', async () => {
+    const untouched = new Proxy({}, { get: () => () => { throw new Error('store must not be used'); } });
+    const service = new SignupService(untouched as never, untouched as never, untouched as never, {
+      appName: 'Test',
+      enabled: true,
+      requireApproval: false,
+      allowedDomains: [],
+      adminSignup: 'off',
+      roles: { user: 'PAYROLL_USER', admin: 'ADMIN' },
+    });
+    await expect(service.complete('x'.repeat(40), 'Name', 'Strong-Pass-99', null, 'ADMIN')).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 });

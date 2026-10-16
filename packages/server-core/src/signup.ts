@@ -30,7 +30,7 @@ export interface SignupStore {
   markVerified(id: string, tokenHash: string, tokenExpiresAt: Date): Promise<void>;
   findByToken(tokenHash: string): Promise<EmailVerificationRecord | null>;
   /** Creates the account and consumes the verification atomically; returns the new user id. */
-  completeSignup(data: { verificationId: string; email: string; name: string; passwordHash: string; active: boolean }): Promise<{ id: string }>;
+  completeSignup(data: { verificationId: string; email: string; name: string; passwordHash: string; active: boolean; roleCode: string }): Promise<{ id: string }>;
 }
 
 export const signupEnvShape = {
@@ -40,6 +40,11 @@ export const signupEnvShape = {
     .enum(['true', 'false', '1', '0'])
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
+  /**
+   * Administrator sign-up: "approval" (default) lets people request an Administrator account,
+   * created as PENDING until an existing Administrator approves it; "off" hides the option.
+   */
+  ADMIN_SIGNUP: z.enum(['off', 'approval']).default('approval'),
   /** Optional comma-separated list of email domains allowed to sign up (e.g. "client.com"). */
   SIGNUP_ALLOWED_DOMAINS: z
     .string()
@@ -52,11 +57,17 @@ export interface SignupConfig {
   enabled: boolean;
   requireApproval: boolean;
   allowedDomains: string[];
+  /** Whether people may request an Administrator account (always approval-gated). */
+  adminSignup: 'off' | 'approval';
+  /** Role codes given to self-registered accounts. */
+  roles: { user: string; admin: string };
   codeTtlMinutes?: number;
   maxAttempts?: number;
   resendCooldownSeconds?: number;
   maxCodesPerHour?: number;
 }
+
+export type AccountType = 'USER' | 'ADMIN';
 
 const GENERIC_SENT = 'If this email can be used to sign up, a 6-digit verification code has been sent to it.';
 
@@ -167,16 +178,29 @@ export class SignupService {
     return { signupToken: token, email };
   }
 
-  async complete(token: string, name: string, password: string, ip: string | null) {
+  async complete(token: string, name: string, password: string, ip: string | null, accountType: AccountType = 'USER') {
     this.assertEnabled();
+    if (accountType === 'ADMIN' && this.config.adminSignup === 'off') {
+      throw new AppError('FORBIDDEN', 'Administrator sign-up is turned off. Ask an existing administrator to create your account.');
+    }
     const v = await this.store.findByToken(hashToken(token));
     if (!v || v.consumedAt || !v.tokenExpiresAt || v.tokenExpiresAt <= new Date()) {
       throw new AppError('VALIDATION_ERROR', 'Your verification has expired. Please start again.', { reason: 'SIGNUP_EXPIRED' });
     }
     if (await this.store.userExists(v.email)) throw new AppError('CONFLICT', 'An account with this email already exists. Please sign in.');
-    const user = await this.store.completeSignup({ verificationId: v.id, email: v.email, name, passwordHash: await hashPassword(password), active: !this.config.requireApproval });
-    await this.audit.write({ actorId: user.id, action: 'signup.account_created', entity: 'user', entityId: user.id, ip, after: { email: v.email, name, status: this.config.requireApproval ? 'PENDING' : 'ACTIVE' } });
-    return { email: v.email, requiresApproval: this.config.requireApproval };
+    // Administrator accounts are never active on sign-up: an existing Administrator must approve them.
+    const active = accountType === 'ADMIN' ? false : !this.config.requireApproval;
+    const roleCode = accountType === 'ADMIN' ? this.config.roles.admin : this.config.roles.user;
+    const user = await this.store.completeSignup({ verificationId: v.id, email: v.email, name, passwordHash: await hashPassword(password), active, roleCode });
+    await this.audit.write({
+      actorId: user.id,
+      action: accountType === 'ADMIN' ? 'signup.admin_requested' : 'signup.account_created',
+      entity: 'user',
+      entityId: user.id,
+      ip,
+      after: { email: v.email, name, role: roleCode, status: active ? 'ACTIVE' : 'PENDING' },
+    });
+    return { email: v.email, requiresApproval: !active, accountType };
   }
 }
 
@@ -189,7 +213,7 @@ export function registerSignupRoutes(r: ApiRegistry, service: SignupService, con
     tag: 'Auth',
     summary: 'Whether self-service sign-up is available',
     auth: false,
-    handler: async () => ({ enabled: config.enabled, requiresApproval: config.requireApproval, devMailbox: mailer.mode === 'dev-mailbox', emailConfigured: mailer.mode !== 'dev-mailbox' && mailer.mode !== 'disabled' }),
+    handler: async () => ({ enabled: config.enabled, requiresApproval: config.requireApproval, adminSignup: config.adminSignup, devMailbox: mailer.mode === 'dev-mailbox', emailConfigured: mailer.mode !== 'dev-mailbox' && mailer.mode !== 'disabled' }),
   });
   r.add({
     method: 'post',
@@ -213,10 +237,15 @@ export function registerSignupRoutes(r: ApiRegistry, service: SignupService, con
     method: 'post',
     path: '/auth/signup/complete',
     tag: 'Auth',
-    summary: 'Step 3: set name and password and create the account',
+    summary: 'Step 3: set name and password and create the account (Payroll User, or an Administrator request awaiting approval)',
     auth: false,
     status: 201,
-    body: z.object({ signupToken: z.string().min(20).max(200), name: z.string().trim().min(2, 'Enter your full name.').max(120), password: passwordSchema }),
-    handler: async ({ body, ip }) => service.complete(body.signupToken, body.name, body.password, ip),
+    body: z.object({
+      signupToken: z.string().min(20).max(200),
+      name: z.string().trim().min(2, 'Enter your full name.').max(120),
+      password: passwordSchema,
+      accountType: z.enum(['USER', 'ADMIN']).default('USER'),
+    }),
+    handler: async ({ body, ip }) => service.complete(body.signupToken, body.name, body.password, ip, body.accountType),
   });
 }

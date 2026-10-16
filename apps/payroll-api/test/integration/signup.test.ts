@@ -43,7 +43,7 @@ describe('self-service sign-up with email verification', () => {
     expect((await post('/auth/signup/complete', { signupToken: token, name: 'New Person', password: 'weak' })).status).toBe(400);
     const done = await post('/auth/signup/complete', { signupToken: token, name: 'New Person', password: STRONG });
     expect(done.status).toBe(201);
-    expect(done.body).toEqual({ email, requiresApproval: false });
+    expect(done.body).toEqual({ email, requiresApproval: false, accountType: 'USER' });
 
     const user = await prisma.user.findFirstOrThrow({ where: { email } });
     expect(user.status).toBe('ACTIVE');

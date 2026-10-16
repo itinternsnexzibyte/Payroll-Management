@@ -392,6 +392,10 @@ export function registerOutputRoutes(r: ApiRegistry) {
       if (p.has('payroll.calculate')) {
         for (const r of await prisma.payrollRun.findMany({ where: { status: 'DRAFT' }, take: 10 })) items.push({ id: `draft-${r.id}`, message: `${periodLabel(r.year, r.month)} payroll is in draft`, href: `/payroll/${r.id}` });
       }
+      if (p.has('users.manage')) {
+        const pending = await prisma.user.findMany({ where: { status: 'PENDING' }, include: { role: true }, orderBy: { createdAt: 'asc' }, take: 10 });
+        for (const u of pending) items.push({ id: `account-${u.id}`, message: `${u.name} requested a ${u.role.name} account`, href: '/admin/users?status=PENDING' });
+      }
       return { items };
     },
   });

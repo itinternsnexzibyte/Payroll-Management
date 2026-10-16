@@ -1,18 +1,19 @@
 'use client';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, MailCheck } from 'lucide-react';
 import { ApiError, get, post } from '../lib/api';
 import { cn } from '../lib/format';
 import { AmbientBackground, BrandPanelArt } from '../components/effects';
-import type { BrandLogo } from './screens';
+import { PortalSwitch, type BrandLogo, type Portal } from './screens';
 import { Alert, Button, Field, Input } from '../components/primitives';
 
 export interface SignupConfig {
   enabled: boolean;
   requiresApproval: boolean;
+  adminSignup: 'off' | 'approval';
   devMailbox: boolean;
   emailConfigured: boolean;
 }
@@ -46,7 +47,13 @@ function Stepper({ step }: { step: Step }) {
 /** Split-screen sign-up: email → 6-digit code sent by email → name and password. */
 export function SignupScreen({ appName, tagline, company, logo, brandLogo, features }: { appName: string; tagline: string; company: string; logo: ReactNode; brandLogo?: BrandLogo; features: string[] }) {
   const router = useRouter();
+  const params = useSearchParams();
   const cfg = useSignupConfig();
+  const [accountType, setAccountType] = useState<Portal>(params.get('as') === 'admin' ? 'ADMIN' : 'USER');
+  const adminAllowed = cfg.data?.adminSignup !== 'off';
+  useEffect(() => {
+    if (cfg.data && cfg.data.adminSignup === 'off') setAccountType('USER');
+  }, [cfg.data]);
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -136,7 +143,7 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
     if (Object.keys(fe).length) return;
     setBusy(true);
     try {
-      const r = await post<{ requiresApproval: boolean }>('/auth/signup/complete', { signupToken: token, name: name.trim(), password });
+      const r = await post<{ requiresApproval: boolean }>('/auth/signup/complete', { signupToken: token, name: name.trim(), password, accountType });
       setRequiresApproval(r.requiresApproval);
       setPassword('');
       setConfirm('');
@@ -188,7 +195,9 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-ink lg:hidden">{company}</p>
             )}
             <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-ink">Create your account</h2>
-            <p className="mt-1 text-sm text-muted">for {appName}</p>
+            <p className="mt-1 text-sm text-muted">
+              {accountType === 'ADMIN' ? 'as an Administrator' : 'as a User'} for {appName}
+            </p>
           </div>
 
           {disabled ? (
@@ -202,6 +211,26 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
                   We sent a 6-digit code to <strong>{email.trim()}</strong>. It expires in 10 minutes.
                   {cfg.data?.devMailbox && <span className="mt-1 block text-xs">Development mode: no email server is configured, so the message was saved in the API&apos;s dev-mailbox folder.</span>}
                 </Alert>
+              )}
+
+              {step === 'email' && (
+                <div className="space-y-3">
+                  <PortalSwitch value={accountType} onChange={setAccountType} label="Create account as" adminDisabled={!adminAllowed} />
+                  <p className="text-xs text-muted">
+                    {accountType === 'ADMIN'
+                      ? 'Administrator accounts can manage users, settings and approvals. Your request is activated only after an existing Administrator approves it.'
+                      : 'User accounts run day-to-day payroll: inputs, calculation, alerts, reconciliation, payslips and reports.'}
+                    {!adminAllowed && ' Administrator sign-up is turned off.'}
+                  </p>
+                </div>
+              )}
+              {step !== 'email' && step !== 'done' && (
+                <p className="flex items-center gap-2 text-xs text-muted">
+                  Account type:
+                  <span className={cn('rounded-full px-2 py-0.5 font-medium', accountType === 'ADMIN' ? 'bg-mist text-primary' : 'bg-accent-bg text-accent-ink')}>
+                    {accountType === 'ADMIN' ? 'Administrator (needs approval)' : 'User'}
+                  </span>
+                </p>
               )}
 
               {step === 'email' && (
@@ -259,7 +288,7 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
                     <Input id="su-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} invalid={!!errors.confirm} />
                   </Field>
                   <Button type="submit" className="w-full" loading={busy}>
-                    Sign up
+                    {accountType === 'ADMIN' ? 'Request Administrator account' : 'Create User account'}
                   </Button>
                 </form>
               )}
@@ -267,11 +296,15 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
               {step === 'done' && (
                 <div className="space-y-4 text-center">
                   <CheckCircle2 className="mx-auto h-10 w-10 text-success" aria-hidden />
-                  <h3 className="text-lg font-semibold text-primary">Account created</h3>
+                  <h3 className="text-lg font-semibold text-primary">{accountType === 'ADMIN' ? 'Request sent' : 'Account created'}</h3>
                   <p className="text-sm text-muted">
-                    {requiresApproval ? 'An administrator must approve your account before you can sign in.' : 'Your account is ready. Sign in with your email and password.'}
+                    {accountType === 'ADMIN'
+                      ? 'An existing Administrator must approve your Administrator account. Once approved, use “Sign in as Administrator”.'
+                      : requiresApproval
+                        ? 'An administrator must approve your account before you can sign in.'
+                        : 'Your account is ready. Sign in with your email and password.'}
                   </p>
-                  <Button className="w-full" onClick={() => router.replace('/login')}>
+                  <Button className="w-full" onClick={() => router.replace(accountType === 'ADMIN' ? '/login?as=admin' : '/login')}>
                     Go to sign in
                   </Button>
                 </div>
@@ -282,7 +315,7 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
           {step !== 'done' && (
             <p className="text-center text-sm text-muted">
               Already have an account?{' '}
-              <Link href="/login" className="font-medium text-cobalt hover:underline">
+              <Link href={accountType === 'ADMIN' ? '/login?as=admin' : '/login'} className="font-medium text-cobalt hover:underline">
                 Sign in
               </Link>
             </p>

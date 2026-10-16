@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, Pencil, Plus, Unlock } from 'lucide-react';
+import { Check, KeyRound, Pencil, Plus, Unlock, UserPlus, X } from 'lucide-react';
 import { ApiError, errorMessage, get, post, put, qs, type Page } from '../lib/api';
 import { formatDateTime } from '../lib/format';
 import { Alert, Badge, Button, Card, Checkbox, Field, Input, Select, StatusBadge } from '../components/primitives';
@@ -24,7 +24,7 @@ interface UserRow {
   id: string;
   email: string;
   name: string;
-  status: 'ACTIVE' | 'DISABLED';
+  status: 'ACTIVE' | 'DISABLED' | 'PENDING';
   mustChangePassword: boolean;
   lastLoginAt: string | null;
   lockedUntil: string | null;
@@ -52,6 +52,25 @@ export function UsersAdmin({ profileFields = [] }: { profileFields?: ProfileFiel
   const roles = useQuery({ queryKey: ['roles'], queryFn: () => get<Role[]>('/roles') });
   const [editing, setEditing] = useState<UserRow | 'new' | null>(null);
   const [resetting, setResetting] = useState<UserRow | null>(null);
+  const [rejecting, setRejecting] = useState<UserRow | null>(null);
+  const [deciding, setDeciding] = useState<string | null>(null);
+  const pending = useQuery({ queryKey: ['users', 'pending-count'], queryFn: () => get<Page<UserRow>>('/users?status=PENDING&pageSize=1') });
+  const pendingCount = pending.data?.total ?? 0;
+
+  const decide = async (u: UserRow, action: 'approve' | 'reject', reason?: string) => {
+    setDeciding(u.id);
+    try {
+      await post(`/users/${u.id}/${action}`, reason ? { reason } : {});
+      toast.success(action === 'approve' ? `${u.name} can now sign in as ${u.role.name}.` : `${u.name}'s request was rejected.`);
+      setRejecting(null);
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setDeciding(null);
+    }
+  };
 
   const unlock = async (u: UserRow) => {
     try {
@@ -75,12 +94,24 @@ export function UsersAdmin({ profileFields = [] }: { profileFields?: ProfileFiel
           </Button>
         }
       />
+      {pendingCount > 0 && list.filters.status !== 'PENDING' && (
+        <div className="fx-enter mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-secondary/30 bg-mist/60 px-4 py-3 text-sm text-primary">
+          <UserPlus className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="flex-1">
+            <strong>{pendingCount}</strong> account request{pendingCount === 1 ? '' : 's'} waiting for approval.
+          </span>
+          <Button size="sm" variant="secondary" onClick={() => list.setFilter('status', 'PENDING')}>
+            Review requests
+          </Button>
+        </div>
+      )}
       <Card padded={false}>
         <Toolbar>
           <SearchInput value={list.search} onChange={list.setSearch} placeholder="Search name or email" label="Search users" />
           <Select className="w-40" value={list.filters.status} onChange={(e) => list.setFilter('status', e.target.value)} aria-label="Filter by status">
             <option value="">All statuses</option>
             <option value="ACTIVE">Active</option>
+            <option value="PENDING">Pending approval</option>
             <option value="DISABLED">Disabled</option>
           </Select>
         </Toolbar>
@@ -101,7 +132,7 @@ export function UsersAdmin({ profileFields = [] }: { profileFields?: ProfileFiel
               header: 'Status',
               render: (u) => (
                 <span className="flex flex-wrap gap-1">
-                  <StatusBadge status={u.status} />
+                  {u.status === 'PENDING' ? <Badge tone="warning">Awaiting approval</Badge> : <StatusBadge status={u.status} />}
                   {u.mustChangePassword && <Badge tone="warning">Must change password</Badge>}
                   {u.lockedUntil && new Date(u.lockedUntil) > new Date() && <Badge tone="danger">Locked</Badge>}
                 </span>
@@ -114,6 +145,16 @@ export function UsersAdmin({ profileFields = [] }: { profileFields?: ProfileFiel
               align: 'right',
               render: (u) => (
                 <span className="inline-flex gap-1">
+                  {u.status === 'PENDING' && (
+                    <>
+                      <Button size="sm" icon={<Check className="h-3.5 w-3.5" />} loading={deciding === u.id} onClick={() => decide(u, 'approve')}>
+                        Approve
+                      </Button>
+                      <Button size="sm" variant="secondary" icon={<X className="h-3.5 w-3.5" />} disabled={deciding === u.id} onClick={() => setRejecting(u)}>
+                        Reject
+                      </Button>
+                    </>
+                  )}
                   {u.lockedUntil && new Date(u.lockedUntil) > new Date() && (
                     <Button size="sm" variant="ghost" icon={<Unlock className="h-3.5 w-3.5" />} onClick={() => unlock(u)}>
                       Unlock
@@ -134,6 +175,17 @@ export function UsersAdmin({ profileFields = [] }: { profileFields?: ProfileFiel
       </Card>
       <UserDialog editing={editing} onClose={() => setEditing(null)} roles={roles.data ?? []} profileFields={profileFields} isSelf={editing !== 'new' && editing?.id === me?.id} />
       <ResetDialog user={resetting} onClose={() => setResetting(null)} />
+      <ConfirmDialog
+        open={!!rejecting}
+        onClose={() => setRejecting(null)}
+        onConfirm={(reason) => rejecting && decide(rejecting, 'reject', reason)}
+        loading={!!rejecting && deciding === rejecting.id}
+        title="Reject account request"
+        message={rejecting ? `${rejecting.name} (${rejecting.email}) asked for a ${rejecting.role.name} account. Rejecting disables the account; it is kept for the audit trail.` : ''}
+        confirmLabel="Reject request"
+        tone="danger"
+        reason={{ label: 'Reason (recorded in the audit log)', minLength: 3 }}
+      />
     </RequirePermission>
   );
 }

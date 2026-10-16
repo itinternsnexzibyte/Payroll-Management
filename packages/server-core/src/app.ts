@@ -129,9 +129,9 @@ export function createBaseApp(opts: BaseAppOptions): Express {
     tag: 'Auth',
     summary: 'Sign in with email and password (sets an httpOnly session cookie)',
     auth: false,
-    body: z.object({ email: z.string().trim().email('Enter a valid email address.').max(200), password: z.string().min(1, 'Enter your password.').max(200) }),
+    body: z.object({ email: z.string().trim().email('Enter a valid email address.').max(200), password: z.string().min(1, 'Enter your password.').max(200), portal: z.enum(['ADMIN', 'USER']).optional() }),
     handler: async ({ req, res, body }) => {
-      const user = await opts.auth.login(req, res, body.email, body.password);
+      const user = await opts.auth.login(req, res, body.email, body.password, body.portal);
       return { user: { id: user.id, email: user.email, name: user.name, role: user.roleCode, roleName: user.roleName, mustChangePassword: user.mustChangePassword } };
     },
   });

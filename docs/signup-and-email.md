@@ -8,7 +8,18 @@ The application offers self-service sign-up. The flow has three steps; the scree
 3. **Password** — they enter their name and a password (10+ characters with upper case, lower
    case and a digit, confirmed twice) and the account is created. They then sign in normally.
 
-There is **no administrator approval step** by default: a verified email becomes an active
+**Account type.** Step 1 offers *User* or *Administrator*. A **User** account gets the Payroll
+User role. An **Administrator** request is always created as `PENDING` with the Administrator role
+and cannot sign in until an existing Administrator approves it in **Users** (Approve / Reject;
+rejected requests are disabled, never deleted, with the reason audit-logged). Administrators see
+pending requests as notifications. Set `ADMIN_SIGNUP=off` to hide the Administrator option.
+
+**Sign in as User / as Administrator.** The sign-in page has the same switch. After the password
+is verified, the server refuses an Administrator account on the User sign-in and a non-Administrator
+account on the Administrator sign-in, without creating a session. API clients that send no
+`portal` are unaffected.
+
+For User accounts there is **no administrator approval step** by default: a verified email becomes an active
 account with the standard Payroll User role. Administrators
 can change a user's role or disable the account afterwards in Users. Approval can be switched back
 on with `SIGNUP_REQUIRE_APPROVAL=true`; the account is then created as `PENDING` and cannot sign
@@ -25,7 +36,8 @@ a pending account would have to be activated by an administrator editing the use
 |---|---|---|
 | `SIGNUP_ENABLED` | `false` (the `.env.example` sets `true` for development) | Turns the sign-up endpoints and screen on |
 | `SIGNUP_ALLOWED_DOMAINS` | empty (any) | Comma-separated list of permitted email domains |
-| `SIGNUP_REQUIRE_APPROVAL` | `false` | New accounts wait as `PENDING` |
+| `SIGNUP_REQUIRE_APPROVAL` | `false` | New User accounts also wait as `PENDING` |
+| `ADMIN_SIGNUP` | `approval` | `approval`: Administrator requests allowed, always approval-gated; `off`: hidden and refused |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | empty / 587 | Outgoing email server. **Required in production.** |
 | `MAIL_FROM` | `NexziByte <no-reply@example.invalid>` | Sender shown on emails (use a real, authorised address) |
 | `MAIL_PROVIDER` | `smtp` when `SMTP_HOST` is set | `brevo` or `resend` sends over HTTPS instead of SMTP |

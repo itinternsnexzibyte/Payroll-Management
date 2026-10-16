@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { ShieldCheck, UserRound } from 'lucide-react';
+import { cn } from '../lib/format';
 import { ApiError, post } from '../lib/api';
 import { Alert, Button, Field, Input } from '../components/primitives';
 import { useSignupConfig } from './signup';
@@ -17,7 +19,43 @@ export interface BrandLogo {
 }
 import { AmbientBackground, BrandPanelArt } from '../components/effects';
 
-/** Sign-in screen with lockout / expiry messaging. */
+export type Portal = 'USER' | 'ADMIN';
+
+/** "User / Administrator" switch used on the sign-in and sign-up screens. */
+export function PortalSwitch({ value, onChange, label, adminDisabled }: { value: Portal; onChange: (p: Portal) => void; label: string; adminDisabled?: boolean }) {
+  const options: { id: Portal; title: string; Icon: typeof UserRound }[] = [
+    { id: 'USER', title: 'User', Icon: UserRound },
+    { id: 'ADMIN', title: 'Administrator', Icon: ShieldCheck },
+  ];
+  return (
+    <div role="radiogroup" aria-label={label} className="relative grid grid-cols-2 rounded-xl border border-line bg-surface p-1">
+      <span
+        aria-hidden
+        className={cn('absolute inset-y-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-[0_2px_10px_-4px_rgb(30_64_175/0.45)] ring-1 ring-secondary/30 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]', value === 'ADMIN' ? 'translate-x-[calc(100%+0px)]' : 'translate-x-0')}
+        style={{ left: 4 }}
+      />
+      {options.map(({ id, title, Icon }) => {
+        const disabled = id === 'ADMIN' && adminDisabled;
+        return (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={value === id}
+            disabled={disabled}
+            onClick={() => onChange(id)}
+            className={cn('relative z-10 flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors', value === id ? 'text-primary' : 'text-muted hover:text-ink', disabled && 'cursor-not-allowed opacity-50')}
+          >
+            <Icon className={cn('h-4 w-4', value === id ? 'text-accent-ink' : '')} aria-hidden />
+            {title}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Sign-in screen with lockout / expiry messaging, and a User / Administrator sign-in choice. */
 export function LoginScreen({ appName, tagline, company, logo, brandLogo, features }: { appName: string; tagline: string; company: string; logo: ReactNode; brandLogo?: BrandLogo; features: string[] }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -29,6 +67,15 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
   const [busy, setBusy] = useState(false);
   const expired = params.get('expired') === '1';
   const signupCfg = useSignupConfig();
+  const [portal, setPortal] = useState<Portal>(params.get('as') === 'admin' ? 'ADMIN' : 'USER');
+  const choosePortal = (p: Portal) => {
+    setPortal(p);
+    setFormError(null);
+    const next = new URLSearchParams(params.toString());
+    if (p === 'ADMIN') next.set('as', 'admin');
+    else next.delete('as');
+    router.replace(`/login${next.toString() ? `?${next}` : ''}`, { scroll: false });
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -40,7 +87,7 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
     if (Object.keys(fe).length) return;
     setBusy(true);
     try {
-      const res = await post<{ user: { mustChangePassword: boolean } }>('/auth/login', { email: email.trim(), password });
+      const res = await post<{ user: { mustChangePassword: boolean } }>('/auth/login', { email: email.trim(), password, portal });
       qc.clear();
       const next = params.get('next');
       router.replace(res.user.mustChangePassword ? '/change-password' : next && next.startsWith('/') && !next.startsWith('//') ? next : '/');
@@ -90,8 +137,11 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-ink lg:hidden">{company}</p>
             )}
             <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-ink">Sign in</h2>
-            <p className="mt-1 text-sm text-muted">to {appName}</p>
+            <p className="mt-1 text-sm text-muted">
+              {portal === 'ADMIN' ? 'as an Administrator' : 'as a User'} to {appName}
+            </p>
           </div>
+          <PortalSwitch value={portal} onChange={choosePortal} label="Sign in as" />
           {expired && <Alert tone="warning">Your session expired. Please sign in again.</Alert>}
           {formError && <Alert tone="danger">{formError}</Alert>}
           <Field label="Email" htmlFor="email" error={errors.email} required>
@@ -101,14 +151,14 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
             <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} invalid={!!errors.password} />
           </Field>
           <Button type="submit" className="w-full" loading={busy}>
-            Sign in
+            {portal === 'ADMIN' ? 'Sign in as Administrator' : 'Sign in as User'}
           </Button>
           <p className="text-center text-xs text-muted">Forgotten your password? Ask an administrator to reset it.</p>
           {signupCfg.data?.enabled && (
             <p className="border-t border-line pt-4 text-center text-sm text-muted">
               New here?{' '}
-              <Link href="/signup" className="font-medium text-cobalt hover:underline">
-                Create an account
+              <Link href={portal === 'ADMIN' && signupCfg.data.adminSignup !== 'off' ? '/signup?as=admin' : '/signup'} className="font-medium text-cobalt hover:underline">
+                {portal === 'ADMIN' && signupCfg.data.adminSignup !== 'off' ? 'Request an Administrator account' : 'Create an account'}
               </Link>
             </p>
           )}

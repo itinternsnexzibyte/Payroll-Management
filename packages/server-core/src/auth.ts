@@ -114,7 +114,11 @@ export class AuthService {
     };
   }
 
-  async login(req: Request, res: Response, email: string, password: string): Promise<AuthUser> {
+  /**
+   * @param portal optional sign-in page the user chose: 'ADMIN' accepts only Administrator accounts,
+   *   'USER' only non-Administrator accounts. Checked after the password, before any session exists.
+   */
+  async login(req: Request, res: Response, email: string, password: string, portal?: 'ADMIN' | 'USER'): Promise<AuthUser> {
     const ip = req.ip ?? null;
     const user = await this.store.findUserByEmail(email.trim().toLowerCase());
     if (!user) {
@@ -144,6 +148,17 @@ export class AuthService {
     if (user.status !== 'ACTIVE' || !user.roleEnabled) {
       await this.audit.write({ actorId: user.id, action: 'auth.login_blocked', entity: 'user', entityId: user.id, ip, metadata: { reason: user.status !== 'ACTIVE' ? 'disabled' : 'role_disabled' } });
       throw new AppError('ACCOUNT_DISABLED', 'This account is disabled. Contact an administrator.');
+    }
+    if (portal) {
+      const isAdmin = user.roleCode === 'ADMIN';
+      if (portal === 'ADMIN' && !isAdmin) {
+        await this.audit.write({ actorId: user.id, action: 'auth.login_blocked', entity: 'user', entityId: user.id, ip, metadata: { reason: 'not_admin_portal' } });
+        throw new AppError('FORBIDDEN', `This is a ${user.roleName} account, not an Administrator account. Use “Sign in as User”.`, { reason: 'WRONG_PORTAL', role: user.roleCode });
+      }
+      if (portal === 'USER' && isAdmin) {
+        await this.audit.write({ actorId: user.id, action: 'auth.login_blocked', entity: 'user', entityId: user.id, ip, metadata: { reason: 'admin_on_user_portal' } });
+        throw new AppError('FORBIDDEN', 'This is an Administrator account. Use “Sign in as Administrator”.', { reason: 'WRONG_PORTAL', role: user.roleCode });
+      }
     }
     await this.store.recordLoginSuccess(user.id);
     const token = randomBytes(32).toString('base64url');

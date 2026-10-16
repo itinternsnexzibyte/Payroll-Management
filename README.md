@@ -57,7 +57,7 @@
 | **Payroll alerts** *(change request A)* | Configurable rules against earlier finalised months — net and component changes, unusual / first-time / repeated monthly amounts, possible duplicate employees — each with the numbers behind it, a review outcome and an append-only history |
 | **Reconciliation** *(change request B)* | Compare any two calculated months by employee and component; absolute and % differences; explain as *expected*, *discrepancy* or *resolved*; PDF/XLSX export |
 | **Knowledge centre** *(change request F)* | Versioned procedures, component notes, business rules and error fixes with owners and review dates; undocumented items flagged; a monthly checklist per run |
-| **Access** | Sign-in with lockout, self-service sign-up with an emailed 6-digit code, roles with configurable permissions (Administrator, Payroll User, optional Viewer), append-only audit log |
+| **Access** | *Sign in as User* or *as Administrator* (checked on the server), lockout after repeated failures, self-service sign-up with an emailed 6-digit code as a User or as an Administrator request that an existing Administrator approves, roles with configurable permissions (Administrator, Payroll User, optional Viewer), append-only audit log |
 
 Change requests A, B and F are not in the original specification and await approval through the change-request process — see [docs/change-requests.md](docs/change-requests.md).
 
@@ -235,7 +235,7 @@ Open **http://localhost:3001** and sign in with the development accounts from th
 | `SESSION_IDLE_MINUTES`, `SESSION_ABSOLUTE_HOURS`, `LOGIN_MAX_FAILED_ATTEMPTS`, `LOGIN_LOCKOUT_MINUTES` | Session and lockout policy |
 | `STORAGE_DIR`, `PDF_BROWSER_PATH` | Private payslip storage; optional browser path for PDFs |
 | `PAYROLL_RULES_APPROVED`, `PAYSLIP_FORMAT_APPROVED` | Keep `false` until the client signs off (controls the PROVISIONAL labels) |
-| `SIGNUP_ENABLED`, `SIGNUP_ALLOWED_DOMAINS`, `SIGNUP_REQUIRE_APPROVAL` | Self-service sign-up |
+| `SIGNUP_ENABLED`, `SIGNUP_ALLOWED_DOMAINS`, `SIGNUP_REQUIRE_APPROVAL`, `ADMIN_SIGNUP` | Self-service sign-up; `ADMIN_SIGNUP=approval` allows Administrator requests (always approval-gated), `off` hides them |
 | `SMTP_HOST` … `MAIL_FROM`, or `MAIL_PROVIDER` + `MAIL_API_KEY` | Sign-up code email; leave `SMTP_HOST` empty in development to write emails to a local folder |
 
 Secrets belong only in `.env` (git-ignored) or the host's secret store — never in the repository.
@@ -271,7 +271,7 @@ Full details: [docs/security.md](docs/security.md). No external security audit o
 | ✅ Implemented | Employees, import/export, versioned salary, monthly payroll lifecycle, payslips, reports, RBAC, audit log, email-verified sign-up |
 | ✅ Implemented *(awaiting change-request approval)* | Payroll alerts (A), reconciliation (B), knowledge centre (F) |
 | ⏳ Blocked on client inputs | Client formulas and rounding from the workbook · reconciliation tests against real sample months · client-approved payslip and report layouts · agreed alert thresholds · final role matrix |
-| 🗓️ Planned engineering | Build and smoke-test the Docker images · production deployment and backup schedule · approval screen for `SIGNUP_REQUIRE_APPROVAL` |
+| 🗓️ Planned engineering | Build and smoke-test the Docker images · production deployment and backup schedule |
 | 💡 Proposed, not approved | Scenario simulator (C) · employee document centre (D) · AI payroll assistant (E) · operations and recovery centre (G) — see [docs/feature-gap-analysis.md](docs/feature-gap-analysis.md) |
 | 🚫 Out of scope | Statutory payroll (PF, ESI, TDS, professional tax) unless confirmed in writing · attendance capture · mobile apps |
 
@@ -281,8 +281,8 @@ Full details: [docs/security.md](docs/security.md). No external security audit o
 
 | Suite | Command | Last recorded result |
 |---|---|---|
-| Shared core unit tests | `npm run test -w @nexzi/server-core` | ✅ 8 / 8 (16 Oct 2026) |
-| API unit + integration (real PostgreSQL) | `npm run test -w @nexzi/payroll-api` | ✅ 93 / 93 (16 Oct 2026) |
+| Shared core unit tests | `npm run test -w @nexzi/server-core` | ✅ 9 / 9 (16 Oct 2026) |
+| API unit + integration (real PostgreSQL) | `npm run test -w @nexzi/payroll-api` | ✅ 103 / 103 (16 Oct 2026) |
 | Both of the above | `npm test` | |
 | Browser end-to-end (Playwright) | `npm run test:e2e` | Payroll and sign-up scenarios exist; not re-run after the latest changes |
 | Lint and types | `npm run lint` · `npm run typecheck` | ✅ clean (16 Oct 2026) |
