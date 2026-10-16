@@ -119,18 +119,19 @@ export class SignupService {
     const { appName } = this.config;
     if (await this.store.userExists(email)) {
       // Record the request (for throttling) but send an informational email instead of a code.
-      await this.store.create({ email, codeHash: '!', expiresAt: new Date(now), ip });
       await this.mailer.send({
         to: email,
         subject: `${appName}: sign-up request`,
         text: `Someone (hopefully you) tried to create a ${appName} account with this email address, but an account already exists. Sign in instead, or ask an administrator to reset your password.`,
         html: emailHtml(appName, 'You already have an account', '<p>Someone tried to create an account with this email address, but one already exists. Please sign in, or ask an administrator to reset your password.</p>'),
       });
+      await this.store.create({ email, codeHash: '!', expiresAt: new Date(now), ip });
       await this.audit.write({ actorId: null, action: 'signup.requested_existing', entity: 'user', entityId: null, ip, metadata: { email } });
       return { message: GENERIC_SENT, resendAfterSeconds: this.cooldown, codeTtlMinutes: this.ttl };
     }
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    await this.store.create({ email, codeHash: await bcrypt.hash(code, 10), expiresAt: new Date(now + this.ttl * 60_000), ip });
+    const codeHash = await bcrypt.hash(code, 10);
+    // Send first: if delivery fails the person can retry at once instead of waiting out the cooldown.
     await this.mailer.send({
       to: email,
       subject: `${appName}: your verification code is ${code}`,
@@ -141,6 +142,7 @@ export class SignupService {
         `<p>Use this code to continue creating your account:</p><p style="font-size:32px;letter-spacing:8px;font-weight:bold;color:#7a2b36;margin:16px 0">${code}</p><p>The code expires in ${this.ttl} minutes. Do not share it with anyone.</p>`,
       ),
     });
+    await this.store.create({ email, codeHash, expiresAt: new Date(now + this.ttl * 60_000), ip });
     await this.audit.write({ actorId: null, action: 'signup.code_sent', entity: 'user', entityId: null, ip, metadata: { email } });
     return { message: GENERIC_SENT, resendAfterSeconds: this.cooldown, codeTtlMinutes: this.ttl };
   }
@@ -187,7 +189,7 @@ export function registerSignupRoutes(r: ApiRegistry, service: SignupService, con
     tag: 'Auth',
     summary: 'Whether self-service sign-up is available',
     auth: false,
-    handler: async () => ({ enabled: config.enabled, requiresApproval: config.requireApproval, devMailbox: mailer.mode === 'dev-mailbox', emailConfigured: mailer.mode === 'smtp' }),
+    handler: async () => ({ enabled: config.enabled, requiresApproval: config.requireApproval, devMailbox: mailer.mode === 'dev-mailbox', emailConfigured: mailer.mode !== 'dev-mailbox' && mailer.mode !== 'disabled' }),
   });
   r.add({
     method: 'post',

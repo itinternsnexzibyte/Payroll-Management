@@ -28,19 +28,32 @@ a pending account would have to be activated by an administrator editing the use
 | `SIGNUP_REQUIRE_APPROVAL` | `false` | New accounts wait as `PENDING` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | empty / 587 | Outgoing email server. **Required in production.** |
 | `MAIL_FROM` | `NexziByte <no-reply@example.invalid>` | Sender shown on emails (use a real, authorised address) |
+| `MAIL_PROVIDER` | `smtp` when `SMTP_HOST` is set | `brevo` or `resend` sends over HTTPS instead of SMTP |
+| `MAIL_API_KEY` | empty | API key for `MAIL_PROVIDER=brevo` / `resend` |
 
 **Development without an email server:** leave `SMTP_HOST` empty. Each email is then written as a
 JSON file to `<STORAGE_DIR>/dev-mailbox/` (for example `apps/payroll-api/storage/dev-mailbox/`),
 and the sign-up screen says so. In production, with no `SMTP_HOST`, sending is refused with a
 clear error instead of silently dropping or logging codes.
 
+`SMTP_HOST` is the mail **server name** (e.g. `smtp.gmail.com`), never an email address; the API
+refuses an address there and logs why. At start-up the API checks the SMTP login and logs
+`SMTP connection verified` or the reason it failed; every failed send is logged too.
+
+**Hosts that block SMTP** (Render free instances block ports 25/465/587): use an HTTPS email API.
+Brevo: `MAIL_PROVIDER=brevo`, `MAIL_API_KEY=<key>`, and `MAIL_FROM` set to a sender verified in
+Brevo. Resend: `MAIL_PROVIDER=resend`, `MAIL_API_KEY=<key>`, `MAIL_FROM` on a domain verified in Resend.
+
 Gmail / Google Workspace example: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_SECURE=false`,
 `SMTP_USER=<mailbox>`, `SMTP_PASSWORD=<app password>`. Microsoft 365: `smtp.office365.com`, port 587.
+With Gmail, the sender shown is the Gmail account unless `MAIL_FROM` is added to that account as a
+"Send mail as" address.
 
 ## Protections
 
 - Codes are random 6-digit values, stored only as bcrypt hashes, valid for 10 minutes.
 - At most 5 wrong attempts per code; a new code is needed afterwards.
+- If sending fails, no code is recorded, so the person can retry at once.
 - One code per address per 60 seconds, and at most 5 per hour; plus a per-IP rate limit on `/auth/signup/*`.
 - The sign-up token is single-use, valid 15 minutes, stored only as a SHA-256 hash.
 - Responses never reveal whether an address already has an account: existing users get a

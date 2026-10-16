@@ -3,7 +3,7 @@
 ARG NODE_VERSION=22.20.0
 
 FROM node:${NODE_VERSION}-bookworm-slim AS build
-ARG APP
+ARG APP=payroll-api
 WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages ./packages
@@ -15,7 +15,7 @@ COPY apps/${APP} ./apps/${APP}
 RUN npm run build -w @nexzi/${APP}
 
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
-ARG APP
+ARG APP=payroll-api
 ENV NODE_ENV=production \
     PDF_BROWSER_PATH=/usr/bin/chromium \
     STORAGE_DIR=/var/lib/nexzi/storage

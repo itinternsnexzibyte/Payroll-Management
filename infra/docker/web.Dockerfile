@@ -3,7 +3,7 @@
 ARG NODE_VERSION=22.20.0
 
 FROM node:${NODE_VERSION}-bookworm-slim AS build
-ARG APP
+ARG APP=payroll-web
 ARG API_INTERNAL_URL
 ENV API_INTERNAL_URL=${API_INTERNAL_URL} NEXT_TELEMETRY_DISABLED=1
 WORKDIR /repo
@@ -15,7 +15,7 @@ COPY apps/${APP} ./apps/${APP}
 RUN npm run build -w @nexzi/${APP}
 
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
-ARG APP
+ARG APP=payroll-web
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/${APP}/.next/standalone ./

@@ -4,6 +4,8 @@ import { formatIndianAmount } from './pdf';
 import { redact, diff } from './audit';
 import { dec, roundTo } from './money';
 import { isoDate } from './pagination';
+import { parseTrustProxy } from './app';
+import { createMailer, parseAddress } from './mailer';
 
 describe('spreadsheet safety', () => {
   it('neutralises formula injection', () => {
@@ -37,5 +39,25 @@ describe('audit redaction', () => {
   it('removes secrets and produces change summaries', () => {
     expect(redact({ email: 'a@b.c', passwordHash: 'x', nested: { token: 't', ok: 1 } })).toEqual({ email: 'a@b.c', passwordHash: '[REDACTED]', nested: { token: '[REDACTED]', ok: 1 } });
     expect(diff({ a: 1, b: 2 }, { a: 1, b: 3 })).toEqual({ before: { b: 2 }, after: { b: 3 } });
+  });
+});
+
+describe('deployment configuration', () => {
+  it('treats numeric TRUST_PROXY values as hop counts', () => {
+    expect(parseTrustProxy('1')).toBe(1);
+    expect(parseTrustProxy(' 2 ')).toBe(2);
+    expect(parseTrustProxy(undefined)).toBe('loopback');
+    expect(parseTrustProxy('true')).toBe(true);
+    expect(parseTrustProxy('10.0.0.0/8')).toBe('10.0.0.0/8');
+  });
+  it('refuses an email address as SMTP_HOST instead of failing on every send', async () => {
+    const silent = { info() {}, warn() {}, error() {} };
+    const m = createMailer({ NODE_ENV: 'production', STORAGE_DIR: '.', SMTP_HOST: 'someone@gmail.com', SMTP_PORT: 587, SMTP_SECURE: false, MAIL_FROM: 'x@y.z' }, silent);
+    expect(m.mode).toBe('disabled');
+    await expect(m.send({ to: 'a@b.c', subject: 's', text: 't', html: 'h' })).rejects.toMatchObject({ code: 'CONFIGURATION_MISSING' });
+  });
+  it('parses sender addresses', () => {
+    expect(parseAddress('NexziByte <we@nexzibyte.com>')).toEqual({ name: 'NexziByte', email: 'we@nexzibyte.com' });
+    expect(parseAddress('we@nexzibyte.com')).toEqual({ email: 'we@nexzibyte.com' });
   });
 });

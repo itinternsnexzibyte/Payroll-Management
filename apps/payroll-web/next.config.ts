@@ -3,7 +3,13 @@ import path from 'node:path';
 
 // The browser only talks to this origin; /api/* is proxied to the Payroll API so the session
 // cookie is first-party (SameSite=Strict). API_INTERNAL_URL is read at build time.
-const API = process.env.API_INTERNAL_URL ?? 'http://localhost:4001';
+// Render's `fromService` reference gives "host:port" with no scheme, so add http:// when missing.
+function apiOrigin(raw: string | undefined): string {
+  const v = (raw ?? '').trim().replace(/\/+$/, '');
+  if (!v) return 'http://localhost:4001';
+  return /^https?:\/\//i.test(v) ? v : `http://${v}`;
+}
+const API = apiOrigin(process.env.API_INTERNAL_URL);
 
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },

@@ -41,10 +41,22 @@ export function originCheck(allowedOrigins: string[]): RequestHandler {
   };
 }
 
+/**
+ * Express treats a string "1" as an IP address, not a hop count, so TRUST_PROXY=1 would trust no
+ * proxy and every client would share one rate-limit bucket. Numbers become hop counts.
+ */
+export function parseTrustProxy(value: string | undefined): boolean | number | string {
+  const v = value?.trim();
+  if (!v) return 'loopback';
+  if (/^\d+$/.test(v)) return Number(v);
+  if (v === 'true' || v === 'false') return v === 'true';
+  return v;
+}
+
 export function createBaseApp(opts: BaseAppOptions): Express {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', process.env.TRUST_PROXY ?? 'loopback');
+  app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
   app.use(httpLogger(opts.logger));
   app.use(
     helmet({
