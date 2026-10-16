@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="t d">
+  <title id="t">System architecture</title>
+  <desc id="d">Browser to Next.js web app on port 3001, which proxies /api to the Express API on port 4001. The API's route registry enforces validation and permissions for its modules, uses Prisma with PostgreSQL 17, headless Chromium for PDFs, private file storage for payslips, and SMTP for sign-up codes.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0B1220"/><stop offset="1" stop-color="#111C35"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#18264A"/><stop offset="1" stop-color="#121D38"/></linearGradient>
+    <linearGradient id="api" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2B55"/><stop offset="1" stop-color="#131F3E"/></linearGradient>
+    <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5B8CFF"/></marker>
+    <marker id="art" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#39D6C5"/></marker>
+  </defs>
+  <style>
+    text { font-family: 'Segoe UI', Inter, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; }
+    .h { fill: #F4F7FB; font-size: 18px; font-weight: 600; }
+    .s { fill: #94A3B8; font-size: 13px; }
+    .m { fill: #C9D7FF; font-size: 13px; font-weight: 600; }
+    .k { fill: #39D6C5; font-size: 11px; font-weight: 700; letter-spacing: 1.6px; }
+    .flow { fill: none; stroke: #5B8CFF; stroke-width: 2; stroke-dasharray: 6 8; animation: f 1.6s linear infinite; }
+    .flowt { fill: none; stroke: #39D6C5; stroke-width: 2; stroke-dasharray: 6 8; animation: f 1.6s linear infinite; }
+    @keyframes f { to { stroke-dashoffset: -28; } }
+    @media (prefers-reduced-motion: reduce) { .flow, .flowt { animation: none; } }
+  </style>
+  <rect width="1280" height="720" rx="24" fill="url(#bg)"/>
+  <text x="48" y="64" class="k">SYSTEM ARCHITECTURE</text>
+  <text x="48" y="94" fill="#F4F7FB" font-size="26" font-weight="700">Browser · Web app · API · Database</text>
+
+  <!-- Browser -->
+  <g transform="translate(48 150)">
+    <rect width="220" height="120" rx="16" fill="url(#card)" stroke="#5B8CFF" stroke-opacity="0.35"/>
+    <text x="24" y="40" class="k">CLIENT</text>
+    <text x="24" y="68" class="h">Browser</text>
+    <text x="24" y="92" class="s">Chrome · Edge · Firefox</text>
+  </g>
+  <!-- Web -->
+  <g transform="translate(48 330)">
+    <rect width="220" height="200" rx="16" fill="url(#card)" stroke="#5B8CFF" stroke-opacity="0.35"/>
+    <text x="24" y="40" class="k">WEB · PORT 3001</text>
+    <text x="24" y="68" class="h">Next.js 15 app</text>
+    <text x="24" y="94" class="s">React 19 · TanStack Query</text>
+    <text x="24" y="116" class="s">Tailwind CSS 4 · @nexzi/ui</text>
+    <rect x="24" y="138" width="172" height="40" rx="10" fill="#5B8CFF" fill-opacity="0.12" stroke="#5B8CFF" stroke-opacity="0.4"/>
+    <text x="110" y="163" class="m" text-anchor="middle">/api/* proxy</text>
+  </g>
+  <path class="flow" d="M158 272 V326" marker-end="url(#ar)"/>
+  <text x="170" y="304" class="s">HTTPS · session cookie</text>
+
+  <!-- API -->
+  <g transform="translate(340 150)">
+    <rect width="600" height="430" rx="18" fill="url(#api)" stroke="#5B8CFF" stroke-opacity="0.5"/>
+    <text x="28" y="42" class="k">API · PORT 4001</text>
+    <text x="28" y="72" class="h">Express 5 · TypeScript</text>
+    <rect x="28" y="92" width="544" height="56" rx="12" fill="#5B8CFF" fill-opacity="0.12" stroke="#5B8CFF" stroke-opacity="0.45"/>
+    <text x="48" y="117" class="m">Route registry</text>
+    <text x="48" y="137" class="s">Zod validation · permission check on every request · OpenAPI · CSRF origin check</text>
+    <g>
+      <rect x="28" y="166" width="170" height="64" rx="12" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <text x="44" y="194" class="m">Auth &amp; sessions</text><text x="44" y="214" class="s">Users · roles · sign-up</text>
+      <rect x="215" y="166" width="170" height="64" rx="12" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <text x="231" y="194" class="m">Employees</text><text x="231" y="214" class="s">CRUD · import · export</text>
+      <rect x="402" y="166" width="170" height="64" rx="12" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <text x="418" y="194" class="m">Salary</text><text x="418" y="214" class="s">Components · versions</text>
+
+      <rect x="28" y="244" width="170" height="64" rx="12" fill="#39D6C5" fill-opacity="0.07" stroke="#39D6C5" stroke-opacity="0.35"/>
+      <text x="44" y="272" class="m">Payroll engine</text><text x="44" y="292" class="s">Lifecycle · exceptions</text>
+      <rect x="215" y="244" width="170" height="64" rx="12" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <text x="231" y="272" class="m">Outputs</text><text x="231" y="292" class="s">Payslips · reports</text>
+      <rect x="402" y="244" width="170" height="64" rx="12" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <text x="418" y="272" class="m">Audit</text><text x="418" y="292" class="s">Append-only log</text>
+
+      <rect x="28" y="322" width="170" height="64" rx="12" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <text x="44" y="350" class="m">Payroll alerts</text><text x="44" y="370" class="s">Rules · review trail</text>
+      <rect x="215" y="322" width="170" height="64" rx="12" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <text x="231" y="350" class="m">Reconciliation</text><text x="231" y="370" class="s">Month vs month</text>
+      <rect x="402" y="322" width="170" height="64" rx="12" fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.1"/>
+      <text x="418" y="350" class="m">Knowledge</text><text x="418" y="370" class="s">Articles · checklist</text>
+    </g>
+    <text x="28" y="414" class="s">Shared core: @nexzi/server-core (auth, registry, audit, money, PDF, spreadsheets, mail)</text>
+  </g>
+  <path class="flow" d="M270 430 H336" marker-end="url(#ar)"/>
+  <text x="282" y="420" class="s">REST</text>
+
+  <!-- Data and services -->
+  <g transform="translate(1012 150)">
+    <rect width="220" height="150" rx="16" fill="url(#card)" stroke="#39D6C5" stroke-opacity="0.45"/>
+    <text x="24" y="40" class="k">DATA</text>
+    <text x="24" y="68" class="h">PostgreSQL 17</text>
+    <text x="24" y="94" class="s">Prisma 6 · migrations</text>
+    <text x="24" y="116" class="s">Integrity triggers</text>
+    <text x="24" y="136" class="s">DECIMAL money</text>
+  </g>
+  <g transform="translate(1012 322)">
+    <rect width="220" height="78" rx="16" fill="url(#card)" stroke="#FFFFFF" stroke-opacity="0.12"/>
+    <text x="24" y="34" class="m">Headless Chromium</text>
+    <text x="24" y="56" class="s">PDF rendering (Puppeteer)</text>
+  </g>
+  <g transform="translate(1012 414)">
+    <rect width="220" height="78" rx="16" fill="url(#card)" stroke="#FFFFFF" stroke-opacity="0.12"/>
+    <text x="24" y="34" class="m">Private file storage</text>
+    <text x="24" y="56" class="s">Stored payslip PDFs</text>
+  </g>
+  <g transform="translate(1012 506)">
+    <rect width="220" height="74" rx="16" fill="url(#card)" stroke="#FFFFFF" stroke-opacity="0.12"/>
+    <text x="24" y="32" class="m">SMTP / email API</text>
+    <text x="24" y="54" class="s">Sign-up verification codes</text>
+  </g>
+  <path class="flowt" d="M944 226 H1008" marker-end="url(#art)"/>
+  <path class="flowt" d="M944 361 H1008" marker-end="url(#art)"/>
+  <path class="flowt" d="M944 453 H1008" marker-end="url(#art)"/>
+  <path class="flowt" d="M944 543 H1008" marker-end="url(#art)"/>
+
+  <text x="48" y="650" class="s">The browser only talks to the web app; /api is proxied so the HttpOnly, SameSite=Strict session cookie stays first-party.</text>
+  <text x="48" y="676" class="s">All calculations run on the server. Finalised payroll and salary values are protected by database triggers.</text>
+</svg>
