@@ -9,6 +9,7 @@ export default function SignupPage() {
         appName="Payroll Management"
         company="NexziByte Solutions"
         tagline="Verify your email, choose a password and start managing payroll with confidence."
+        brandLogo={{ light: '/brand/nexzibyte-logo-light.png', dark: '/brand/nexzibyte-logo.png', alt: 'NexziByte Solutions Pvt Ltd' }}
         logo={<BrandMark letter="P" />}
         features={['Employee master with salary history', 'Review, approval and locked finalisation', 'Payslips and payroll reports']}
       />

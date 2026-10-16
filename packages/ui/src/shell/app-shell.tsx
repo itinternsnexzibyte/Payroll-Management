@@ -24,6 +24,8 @@ interface Brand {
   appName: string;
   company: string;
   logo: ReactNode;
+  /** Optional company logo image for the dark sidebar (white lettering). */
+  logoImage?: { src: string; alt: string };
 }
 
 function useClickOutside(onOutside: () => void) {
@@ -146,12 +148,18 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
   const sidebar = (
     <nav aria-label="Main navigation" className="flex h-full flex-col">
       <div className={cn('flex h-16 items-center gap-3 border-b border-white/10 px-4', collapsed && 'justify-center px-2')}>
-        <span className="shrink-0">{brand.logo}</span>
-        {!collapsed && (
-          <span className="leading-tight">
-            <span className="block text-[15px] font-semibold text-white">{brand.appName}</span>
-            <span className="block text-[11px] uppercase tracking-[0.12em] text-accent/90">{brand.company}</span>
-          </span>
+        {brand.logoImage && !collapsed ? (
+          <img src={brand.logoImage.src} alt={brand.logoImage.alt} title={brand.appName} width={756} height={210} className="h-10 w-auto max-w-[210px] object-contain object-left" />
+        ) : (
+          <>
+            <span className="shrink-0">{brand.logo}</span>
+            {!collapsed && (
+              <span className="leading-tight">
+                <span className="block text-[15px] font-semibold text-white">{brand.appName}</span>
+                <span className="block text-[11px] uppercase tracking-[0.12em] text-accent/90">{brand.company}</span>
+              </span>
+            )}
+          </>
         )}
       </div>
       <div className="flex-1 overflow-y-auto px-2 py-4">

@@ -33,7 +33,7 @@ function RulesBanner() {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AppShell brand={{ appName: 'Payroll', company: 'NexziByte', logo: <BrandMark letter="P" /> }} nav={NAV} banner={<RulesBanner />}>
+    <AppShell brand={{ appName: 'Payroll Management', company: 'NexziByte', logo: <BrandMark letter="P" />, logoImage: { src: '/brand/nexzibyte-logo-light.png', alt: 'NexziByte Solutions Pvt Ltd' } }} nav={NAV} banner={<RulesBanner />}>
       <Suspense fallback={<Spinner />}>{children}</Suspense>
     </AppShell>
   );

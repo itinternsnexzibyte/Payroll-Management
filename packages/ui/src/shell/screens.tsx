@@ -8,10 +8,17 @@ import { Alert, Button, Field, Input } from '../components/primitives';
 import { useSignupConfig } from './signup';
 import { useToast } from '../components/feedback';
 import { useAuth } from './auth';
+
+/** Company logo image files: `light` for the dark brand panel, `dark` for light backgrounds. */
+export interface BrandLogo {
+  light: string;
+  dark: string;
+  alt: string;
+}
 import { AmbientBackground, BrandPanelArt } from '../components/effects';
 
 /** Sign-in screen with lockout / expiry messaging. */
-export function LoginScreen({ appName, tagline, company, logo, features }: { appName: string; tagline: string; company: string; logo: ReactNode; features: string[] }) {
+export function LoginScreen({ appName, tagline, company, logo, brandLogo, features }: { appName: string; tagline: string; company: string; logo: ReactNode; brandLogo?: BrandLogo; features: string[] }) {
   const router = useRouter();
   const params = useSearchParams();
   const qc = useQueryClient();
@@ -50,8 +57,14 @@ export function LoginScreen({ appName, tagline, company, logo, features }: { app
       <div className="relative hidden flex-col justify-between overflow-hidden bg-navy p-12 text-white lg:flex">
         <BrandPanelArt />
         <div className="relative z-10 flex items-center gap-3">
-          {logo}
-          <span className="text-xs uppercase tracking-[0.18em] text-accent">{company}</span>
+          {brandLogo ? (
+            <img src={brandLogo.light} alt={brandLogo.alt} width={756} height={210} className="h-14 w-auto" />
+          ) : (
+            <>
+              {logo}
+              <span className="text-xs uppercase tracking-[0.18em] text-accent">{company}</span>
+            </>
+          )}
         </div>
         <div className="fx-enter relative z-10 max-w-md">
           <h1 className="text-4xl font-semibold leading-[1.1] tracking-[-0.02em]">{appName}</h1>
@@ -71,7 +84,11 @@ export function LoginScreen({ appName, tagline, company, logo, features }: { app
         <AmbientBackground className="!absolute" />
         <form onSubmit={submit} className="fx-enter relative z-10 w-full max-w-sm space-y-5 rounded-2xl border border-white bg-white/80 p-8 shadow-[0_30px_60px_-30px_rgb(30_64_175/0.35)] backdrop-blur-xl" noValidate>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-ink lg:hidden">{company}</p>
+            {brandLogo ? (
+              <img src={brandLogo.dark} alt={brandLogo.alt} width={756} height={210} className="mb-5 h-11 w-auto lg:hidden" />
+            ) : (
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-ink lg:hidden">{company}</p>
+            )}
             <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-ink">Sign in</h2>
             <p className="mt-1 text-sm text-muted">to {appName}</p>
           </div>

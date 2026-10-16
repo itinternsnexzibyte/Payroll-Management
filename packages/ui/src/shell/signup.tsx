@@ -7,6 +7,7 @@ import { CheckCircle2, MailCheck } from 'lucide-react';
 import { ApiError, get, post } from '../lib/api';
 import { cn } from '../lib/format';
 import { AmbientBackground, BrandPanelArt } from '../components/effects';
+import type { BrandLogo } from './screens';
 import { Alert, Button, Field, Input } from '../components/primitives';
 
 export interface SignupConfig {
@@ -43,7 +44,7 @@ function Stepper({ step }: { step: Step }) {
 }
 
 /** Split-screen sign-up: email → 6-digit code sent by email → name and password. */
-export function SignupScreen({ appName, tagline, company, logo, features }: { appName: string; tagline: string; company: string; logo: ReactNode; features: string[] }) {
+export function SignupScreen({ appName, tagline, company, logo, brandLogo, features }: { appName: string; tagline: string; company: string; logo: ReactNode; brandLogo?: BrandLogo; features: string[] }) {
   const router = useRouter();
   const cfg = useSignupConfig();
   const [step, setStep] = useState<Step>('email');
@@ -154,8 +155,14 @@ export function SignupScreen({ appName, tagline, company, logo, features }: { ap
       <div className="relative hidden flex-col justify-between overflow-hidden bg-navy p-12 text-white lg:flex">
         <BrandPanelArt />
         <div className="relative z-10 flex items-center gap-3">
-          {logo}
-          <span className="text-xs uppercase tracking-[0.18em] text-accent">{company}</span>
+          {brandLogo ? (
+            <img src={brandLogo.light} alt={brandLogo.alt} width={756} height={210} className="h-14 w-auto" />
+          ) : (
+            <>
+              {logo}
+              <span className="text-xs uppercase tracking-[0.18em] text-accent">{company}</span>
+            </>
+          )}
         </div>
         <div className="fx-enter relative z-10 max-w-md">
           <h1 className="text-4xl font-semibold leading-[1.1] tracking-[-0.02em]">{appName}</h1>
@@ -175,7 +182,11 @@ export function SignupScreen({ appName, tagline, company, logo, features }: { ap
         <AmbientBackground className="!absolute" />
         <div className="fx-enter relative z-10 w-full max-w-sm space-y-5 rounded-2xl border border-white bg-white/80 p-8 shadow-[0_30px_60px_-30px_rgb(30_64_175/0.35)] backdrop-blur-xl">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-ink lg:hidden">{company}</p>
+            {brandLogo ? (
+              <img src={brandLogo.dark} alt={brandLogo.alt} width={756} height={210} className="mb-5 h-11 w-auto lg:hidden" />
+            ) : (
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-ink lg:hidden">{company}</p>
+            )}
             <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-ink">Create your account</h2>
             <p className="mt-1 text-sm text-muted">for {appName}</p>
           </div>
