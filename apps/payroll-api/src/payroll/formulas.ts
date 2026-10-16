@@ -19,6 +19,10 @@ export interface FormulaContext {
   parameter: Dec | null;
   /** Amount of another component already calculated for this employee (throws if missing). */
   component(code: string): Dec;
+  /** Amount of another component, or null when it is not part of this employee's structure. */
+  componentOrNull(code: string): Dec | null;
+  /** Records an explanatory value on the calculated line (e.g. wages used, employer share). */
+  note(key: string, value: string): void;
   /** Numeric monthly input value (null when not entered). */
   input(key: string): Dec | null;
 }
@@ -30,6 +34,10 @@ export interface FormulaDefinition {
   workbookReference: string;
   /** Component codes this formula reads (used for dependency ordering). */
   dependsOn: string[];
+  /** When true the component applies to every employee with a salary structure (statutory deductions). */
+  appliesToAll?: boolean;
+  /** Changes whenever the formula's configuration changes, so stale calculations are detected. */
+  fingerprint?: string;
   evaluate(ctx: FormulaContext): Dec;
 }
 

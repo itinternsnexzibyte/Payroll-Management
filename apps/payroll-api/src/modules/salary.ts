@@ -3,6 +3,10 @@ import { AppError, DECIMAL_RE, diff, idParam, isoDate, notFound, toIsoDate, type
 import { prisma, Prisma } from '../db';
 import { audit } from '../audit';
 import { FORMULA_REGISTRY } from '../payroll/formulas';
+import { buildStatutoryFormulas, DEFAULT_STATUTORY, STATUTORY_REFS } from '../statutory/rules';
+
+const STATUTORY_FORMULAS = buildStatutoryFormulas(DEFAULT_STATUTORY);
+const isStatutory = (ref: string | null) => !!ref && (Object.values(STATUTORY_REFS) as string[]).includes(ref);
 
 const componentBase = z.object({
   name: z.string().trim().min(1).max(80),
@@ -51,7 +55,7 @@ function serializeComponent(c: Prisma.SalaryComponentGetPayload<object>) {
   return {
     ...c,
     defaultPercentage: c.defaultPercentage?.toString() ?? null,
-    formulaStatus: c.basis === 'FORMULA' ? (c.formulaRef && FORMULA_REGISTRY[c.formulaRef] ? 'CONFIGURED' : 'AWAITING_CLIENT_WORKBOOK') : null,
+    formulaStatus: c.basis === 'FORMULA' ? (isStatutory(c.formulaRef) ? 'STATUTORY' : c.formulaRef && FORMULA_REGISTRY[c.formulaRef] ? 'CONFIGURED' : 'AWAITING_CLIENT_WORKBOOK') : null,
   };
 }
 
@@ -82,7 +86,7 @@ export function registerSalaryRoutes(r: ApiRegistry) {
     permission: ['salary.view', 'payroll.view', 'settings.manage'],
     handler: async () => {
       const items = await prisma.salaryComponent.findMany({ orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }] });
-      return { items: items.map(serializeComponent), availableFormulas: Object.entries(FORMULA_REGISTRY).map(([key, f]) => ({ key, label: f.label, workbookReference: f.workbookReference })) };
+      return { items: items.map(serializeComponent), availableFormulas: Object.entries({ ...STATUTORY_FORMULAS, ...FORMULA_REGISTRY }).map(([key, f]) => ({ key, label: f.label, workbookReference: isStatutory(key) ? 'Statutory settings' : f.workbookReference })) };
     },
   });
 

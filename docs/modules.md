@@ -25,12 +25,12 @@ Status of the module list (12 core, 8 advanced) against this repository, 16 Oct 
 |---|---|---|
 | Leave management | ✅ **Added** | Leave types (paid/unpaid, yearly days), per-employee allowance overrides, requests within one month, overlap and allowance checks, approval by someone other than the person who entered it, balances, cancellation |
 | Employee self-service | ✅ **Added** | `Employee` role; an Administrator links the account to an employee record in Users. The employee sees only their own payslips (finalised months), details and leave, and can request or cancel their own leave. All `/me/*` endpoints are scoped by the linked record |
-| Statutory payroll (PF, ESI, TDS…) | ⛔ **Not built — blocked** | The module list itself says "after requirements and compliance rules are verified", and the specification puts statutory payroll out of scope until confirmed in writing. No statutory rule is invented |
+| Statutory payroll (PF, ESI, TDS) | ✅ **Added — off until configured** | Configuration → Statutory deductions. No rates are built in: the payroll team enters rates, ceilings, limits and tax slabs, records who confirmed them, then switches each section on. PF, ESI and TDS are deducted for every employee with a salary structure; employer shares go to the Statutory deductions report. See [statutory-bank-attendance.md](statutory-bank-attendance.md) |
 | Loan & salary advance | ✅ **Added** | One active loan/advance per employee with a monthly instalment. Instalments fill the mapped input; recovered and outstanding amounts are read from finalised payroll months |
 | Bonus & incentives | ✅ **Added** | Amounts per employee and month, proposed and approved by different people; approved amounts fill the mapped inputs. Incentive *formulas* are the client's and are not calculated here |
 | Email notifications | ✅ **Added** | Approvers on submission, finalisers on approval, employees when their payslip is available and when leave is decided. Each can be switched off; emails never contain amounts |
-| Attendance integration | 🟡 **File import added; live sync blocked** | Attendance files import through the monthly input import. A live connection to the client's attendance application needs its API or export specification |
-| Bank salary export | ⛔ **Not built — blocked** | Needs the bank's file format and written approval to store bank account details (the specification allows bank fields only if present in the client's workbook) |
+| Attendance integration | ✅ **File import + live sync added** | Attendance files import through the monthly input import. **Live sync:** the attendance application sends each month to `POST /integrations/attendance` with an API key; fields are mapped to input columns, reviewed and applied (or applied automatically) to Draft/Calculated payroll only |
+| Bank salary export | ✅ **Added — needs `BANK_DATA_KEY`** | Payroll → Bank salary payments. Employee bank details stored encrypted (masked everywhere), configurable CSV/XLSX file layout, file for finalised payroll only, missing details listed, every file recorded. Set the layout to your bank's format before the first upload |
 
 ## How the modules reach payroll
 
@@ -42,7 +42,9 @@ components that use those input columns decide how they affect pay.
 
 ## Permissions added
 
-`leave.view`, `leave.manage`, `leave.approve`, `loans.manage`, `bonuses.manage`, `self.service`.
+`leave.view`, `leave.manage`, `leave.approve`, `loans.manage`, `bonuses.manage`, `self.service`,
+`bank.view`, `bank.manage`, `bank.export`, `integrations.manage` (bank and integration permissions
+are given to Administrators only).
 Administrators receive new permissions automatically. **Existing** roles are never changed
 automatically: grant the new permissions to the Payroll User role in Roles & permissions if
 wanted (new installations include `leave.view`, `leave.manage`, `loans.manage` and
@@ -53,3 +55,7 @@ wanted (new installations include `leave.view`, `leave.manage`, `loans.manage` a
 Migration `20261016150000_payroll_modules` (additive): employee contact columns, `users.employeeId`
 (unique, one account per employee), `leave_types`, `leave_entitlements`, `leave_requests`,
 `loans`, `bonus_entries`, with check constraints on dates, days, amounts and months.
+
+Migration `20261016180000_statutory_bank_attendance` (additive): `employee_bank_accounts`
+(encrypted account number), `bank_exports` (append-only), `integration_keys` (hashed),
+`attendance_batches`.

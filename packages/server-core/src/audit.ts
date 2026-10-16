@@ -13,7 +13,7 @@ export interface AuditWriter {
   write(entry: AuditEntry): Promise<void>;
 }
 
-const SECRET_KEY = /pass(word)?|token|secret|hash|cookie|authorization/i;
+const SECRET_KEY = /pass(word)?|token|secret|hash|cookie|authorization|accountnumber/i;
 
 /**
  * Produces a JSON-safe copy of a value with secret-bearing keys removed.

@@ -1,6 +1,6 @@
 'use client';
 import { Suspense } from 'react';
-import { ArrowLeftRight, BarChart3, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, FileSpreadsheet, FileText, Gift, HandCoins, LayoutDashboard, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, Users, UsersRound, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Banknote, BarChart3, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, FileSpreadsheet, FileText, Gift, HandCoins, Landmark, LayoutDashboard, RadioTower, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, Users, UsersRound, Wallet } from 'lucide-react';
 import { AppShell, BrandMark, Spinner, useAuth, type NavItem } from '@nexzi/ui';
 
 const NAV: NavItem[] = [
@@ -11,6 +11,7 @@ const NAV: NavItem[] = [
   { label: 'Payroll alerts', href: '/alerts', icon: ShieldAlert, permission: 'payroll.view_amounts', section: 'Payroll' },
   { label: 'Reconciliation', href: '/reconciliation', icon: ArrowLeftRight, permission: 'reports.view', section: 'Payroll' },
   { label: 'Reports', href: '/reports', icon: BarChart3, permission: 'reports.view', section: 'Payroll' },
+  { label: 'Bank salary payments', href: '/bank', icon: Banknote, permission: ['bank.view', 'bank.manage', 'bank.export'], section: 'Payroll' },
   { label: 'Loans & advances', href: '/advances', icon: HandCoins, permission: 'loans.manage', section: 'Payroll' },
   { label: 'Bonuses & incentives', href: '/bonuses', icon: Gift, permission: ['bonuses.manage', 'payroll.approve'], section: 'Payroll' },
   { label: 'Employees', href: '/employees', icon: UsersRound, permission: 'employees.view', section: 'People' },
@@ -18,6 +19,8 @@ const NAV: NavItem[] = [
   { label: 'Leave', href: '/leave', icon: CalendarRange, permission: ['leave.view', 'leave.manage', 'leave.approve'], section: 'People' },
   { label: 'Salary components', href: '/salary-components', icon: Wallet, permission: ['salary.view', 'settings.manage'], section: 'Configuration' },
   { label: 'Payroll settings', href: '/settings', icon: Settings2, permission: 'settings.manage', section: 'Configuration' },
+  { label: 'Statutory deductions', href: '/statutory', icon: Landmark, permission: 'settings.manage', section: 'Configuration' },
+  { label: 'Attendance sync', href: '/attendance-sync', icon: RadioTower, permission: 'integrations.manage', section: 'Configuration' },
   { label: 'Departments', href: '/settings/masters', icon: Building2, permission: ['settings.manage', 'employees.manage'], section: 'Configuration' },
   { label: 'Knowledge centre', href: '/knowledge', icon: BookOpen, section: 'Handover' },
   { label: 'Users', href: '/admin/users', icon: Users, permission: 'users.manage', section: 'Administration' },

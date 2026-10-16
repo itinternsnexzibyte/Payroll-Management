@@ -40,7 +40,7 @@ export interface SalaryComponent {
   active: boolean;
   showOnPayslip: boolean;
   description: string | null;
-  formulaStatus: 'CONFIGURED' | 'AWAITING_CLIENT_WORKBOOK' | null;
+  formulaStatus: 'CONFIGURED' | 'STATUTORY' | 'AWAITING_CLIENT_WORKBOOK' | null;
 }
 
 export interface InputDefinition {

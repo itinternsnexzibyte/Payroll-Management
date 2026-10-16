@@ -203,6 +203,7 @@ model Employee {
   user           User?
   leaveRequests  LeaveRequest[]
   entitlements   LeaveEntitlement[]
+  bankAccount    EmployeeBankAccount?
   loans          Loan[]
   bonuses        BonusEntry[]
 
@@ -834,4 +835,80 @@ model BonusEntry {
   @@index([year, month, status])
   @@index([employeeId])
   @@map("bonus_entries")
+}
+
+/// Employee salary account. The account number is encrypted (AES-256-GCM, BANK_DATA_KEY) and is
+/// only decrypted into the bank salary file; screens show the last four digits.
+model EmployeeBankAccount {
+  id               String   @id @default(uuid()) @db.Uuid
+  employeeId       String   @unique @db.Uuid
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  accountHolder    String
+  accountNumberEnc String
+  accountLast4     String
+  ifsc             String
+  bankName         String?
+  branch           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  updatedById      String?  @db.Uuid
+
+  @@map("employee_bank_accounts")
+}
+
+/// One generated bank salary file (the file itself is not stored; amounts are not logged).
+model BankExport {
+  id            String   @id @default(uuid()) @db.Uuid
+  payrollRunId  String   @db.Uuid
+  format        String
+  fileName      String
+  employeeCount Int
+  skippedCount  Int
+  fileSha256    String
+  createdById   String   @db.Uuid
+  createdByName String
+  createdAt     DateTime @default(now())
+
+  @@index([payrollRunId])
+  @@map("bank_exports")
+}
+
+/// API key for a server-to-server integration (attendance application). Only a hash is stored.
+model IntegrationKey {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String
+  prefix      String            @unique
+  keyHash     String
+  createdById String            @db.Uuid
+  createdAt   DateTime          @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  batches     AttendanceBatch[]
+
+  @@map("integration_keys")
+}
+
+/// Attendance data received from the attendance application for one payroll month.
+model AttendanceBatch {
+  id           String          @id @default(uuid()) @db.Uuid
+  keyId        String?         @db.Uuid
+  key          IntegrationKey? @relation(fields: [keyId], references: [id], onDelete: Restrict)
+  /// Sender's batch identifier; the same identifier is accepted only once per key
+  externalId   String?
+  year         Int
+  month        Int
+  /// RECEIVED | APPLIED | PARTIAL | FAILED
+  status       String          @default("RECEIVED")
+  recordCount  Int
+  appliedCount Int             @default(0)
+  records      Json
+  errors       Json            @default("[]")
+  payrollRunId String?         @db.Uuid
+  receivedAt   DateTime        @default(now())
+  appliedAt    DateTime?
+  appliedById  String?         @db.Uuid
+
+  @@unique([keyId, externalId])
+  @@index([year, month])
+  @@map("attendance_batches")
 }

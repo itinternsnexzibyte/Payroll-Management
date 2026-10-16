@@ -19,6 +19,9 @@ import { registerLeaveRoutes } from './leave/routes';
 import { registerLoanRoutes } from './loans/routes';
 import { registerBonusRoutes } from './bonuses/routes';
 import { registerSelfServiceRoutes } from './self-service/routes';
+import { registerStatutoryRoutes } from './statutory/routes';
+import { registerBankRoutes } from './bank/routes';
+import { registerAttendanceRoutes } from './attendance/routes';
 
 export const logger = createLogger('payroll-api', config.LOG_LEVEL);
 
@@ -49,9 +52,10 @@ export function createApp() {
     name: 'Payroll Management',
     version: '0.1.0',
     description:
-      'REST API for the NexziByte Payroll Management application. All endpoints except /auth/login, /health and /ready require the session cookie; permissions are enforced on every request.',
+      'REST API for the NexziByte Payroll Management application. All endpoints except /auth/login, sign-up, /health and /ready require the session cookie, and permissions are enforced on every request. The attendance application sends data to /integrations/attendance with an API key (Authorization: Bearer) instead of a session.',
     logger,
     allowedOrigins: config.ALLOWED_ORIGINS,
+    keyAuthPrefixes: ['/integrations/'],
     auth,
     cookieName: COOKIE_NAME,
     publicApiPrefix: config.PUBLIC_API_PREFIX,
@@ -75,6 +79,9 @@ export function createApp() {
       registerLoanRoutes(r);
       registerBonusRoutes(r);
       registerSelfServiceRoutes(r);
+      registerStatutoryRoutes(r);
+      registerBankRoutes(r);
+      registerAttendanceRoutes(r);
     },
     meExtras: async (userId) => ({
       app: 'payroll',

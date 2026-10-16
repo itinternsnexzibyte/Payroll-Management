@@ -11,6 +11,14 @@ export const config = parseEnv({
   PAYROLL_RULES_APPROVED: envBool,
   VIEWER_ROLE_ENABLED: envBool,
   PAYSLIP_FORMAT_APPROVED: envBool,
+  /**
+   * 32-byte key (base64) that encrypts employee bank account numbers at rest. Without it, bank
+   * details cannot be stored or exported. Losing it makes stored account numbers unreadable.
+   */
+  BANK_DATA_KEY: z
+    .string()
+    .optional()
+    .refine((v) => !v || Buffer.from(v, 'base64').length === 32, 'BANK_DATA_KEY must be 32 bytes, base64-encoded'),
   PAYSLIP_COMPANY_NAME: z.string().default('[Client company name — awaiting approved payslip format]'),
 });
 

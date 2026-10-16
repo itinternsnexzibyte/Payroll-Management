@@ -125,3 +125,22 @@
 | Self-service | `GET` | `/me/leave` | My leave requests and balances | self.service |
 | Self-service | `POST` | `/me/leave` | Request leave for myself | self.service |
 | Self-service | `POST` | `/me/leave/{id}/cancel` | Cancel one of my pending leave requests | self.service |
+| Statutory | `GET` | `/statutory` | Statutory settings (PF, ESI, TDS), completeness problems and the components that use them | settings.manage, payroll.view |
+| Statutory | `PUT` | `/statutory` | Save the statutory settings; a section can be switched on only when complete and confirmed | settings.manage |
+| Statutory | `POST` | `/statutory/components` | Create the deduction component for PF, ESI or TDS (if it does not exist yet) | settings.manage |
+| Reports | `GET` | `/reports/statutory` | PF, ESI and TDS for a payroll month: wages, employee and employer contributions | reports.view |
+| Bank | `GET` | `/bank/accounts` | Bank details of all employees (account numbers masked) | bank.view, bank.manage |
+| Bank | `GET` | `/employees/{id}/bank` | An employee's bank details (account number masked) | bank.view, bank.manage |
+| Bank | `PUT` | `/employees/{id}/bank` | Add or replace an employee's bank details (account number stored encrypted) | bank.manage |
+| Bank | `DELETE` | `/employees/{id}/bank` | Remove an employee's bank details | bank.manage |
+| Bank | `GET` | `/bank/layout` | Bank salary file layout | bank.export, settings.manage |
+| Bank | `PUT` | `/bank/layout` | Change the bank salary file layout (columns, format, date format) | settings.manage |
+| Bank | `GET` | `/payroll-runs/{id}/bank-export/preview` | Who will be in the bank salary file, who is missing bank details, and previous files | bank.export |
+| Bank | `GET` | `/payroll-runs/{id}/bank-export` | Download the bank salary file for a finalised payroll (net pay per employee) | bank.export |
+| Integrations | `POST` | `/integrations/attendance` | Receive monthly attendance from the attendance application (API key: Authorization: Bearer nzatt_…) | API key |
+| Integrations | `GET` | `/attendance-sync` | Attendance sync settings, API keys and recent batches | integrations.manage |
+| Integrations | `PUT` | `/attendance-sync/settings` | Switch attendance sync on/off, choose auto-apply and map attendance fields to input columns | integrations.manage |
+| Integrations | `POST` | `/attendance-sync/keys` | Create an API key for the attendance application (the key is shown only once) | integrations.manage |
+| Integrations | `POST` | `/attendance-sync/keys/{id}/revoke` | Revoke an attendance API key | integrations.manage |
+| Integrations | `GET` | `/attendance-sync/batches/{id}` | A received batch with a preview of the values it writes (nothing is changed) | integrations.manage |
+| Integrations | `POST` | `/attendance-sync/batches/{id}/apply` | Write a received batch into its payroll month (Draft or Calculated payroll only) | integrations.manage |

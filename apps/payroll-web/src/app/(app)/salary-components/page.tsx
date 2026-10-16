@@ -81,7 +81,7 @@ function ComponentsList() {
                   <span className="block text-xs text-muted">
                     {c.basis === 'PERCENTAGE' && `of ${c.percentOfCode}${c.defaultPercentage ? ` (default ${c.defaultPercentage}%)` : ''}`}
                     {c.basis === 'INPUT' && `from input ${c.inputKey}`}
-                    {c.basis === 'FORMULA' && `${c.formulaRef} — ${c.formulaStatus === 'CONFIGURED' ? 'configured' : 'awaiting client workbook'}`}
+                    {c.basis === 'FORMULA' && `${c.formulaRef} — ${c.formulaStatus === 'STATUTORY' ? 'statutory settings' : c.formulaStatus === 'CONFIGURED' ? 'configured' : 'awaiting client workbook'}`}
                   </span>
                 </span>
               ),

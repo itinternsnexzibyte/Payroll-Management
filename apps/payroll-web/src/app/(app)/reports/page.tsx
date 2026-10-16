@@ -41,7 +41,7 @@ export default function ReportsPage() {
   const [tab, setTab] = useState<'run' | 'employee'>('run');
   return (
     <RequirePermission permission="reports.view">
-      <PageHeader title="Reports" description="Monthly summary, earnings, deductions, net payable and employee salary statements — on screen, as PDF or as XLSX." breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Reports' }]} />
+      <PageHeader title="Reports" description="Monthly summary, register, earnings, deductions, net payable, statutory deductions and employee salary statements — on screen, as PDF or as XLSX." breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Reports' }]} />
       {!can('payroll.view_amounts') ? (
         <Alert tone="warning">Your role does not include permission to view payroll amounts, so reports are not available.</Alert>
       ) : (
@@ -132,6 +132,7 @@ const REPORTS = [
   { id: 'earnings', label: 'Earnings report', path: (id: string) => `/reports/components${qs({ runId: id, type: 'EARNING' })}`, file: 'earnings' },
   { id: 'deductions', label: 'Deductions report', path: (id: string) => `/reports/components${qs({ runId: id, type: 'DEDUCTION' })}`, file: 'deductions' },
   { id: 'net', label: 'Net payable report', path: (id: string) => `/reports/net-payable${qs({ runId: id })}`, file: 'net-payable' },
+  { id: 'statutory', label: 'Statutory deductions (PF, ESI, TDS)', path: (id: string) => `/reports/statutory${qs({ runId: id })}`, file: 'statutory' },
 ];
 
 function RunReports() {

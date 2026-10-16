@@ -5,6 +5,7 @@ import { config } from '../config';
 import { getSettings, type PayrollSettings } from '../settings';
 import { calculateRun, isEligible, selectSalaryVersion, validateInputValue, type ComponentDef, type EmployeeCalcInput, type InputDef } from './engine';
 import { FORMULA_REGISTRY, type FormulaRegistry } from './formulas';
+import { buildStatutoryFormulas } from '../statutory/rules';
 
 export type RunStatus = 'DRAFT' | 'CALCULATED' | 'UNDER_REVIEW' | 'APPROVED' | 'FINALISED';
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -15,6 +16,8 @@ let formulas: FormulaRegistry = FORMULA_REGISTRY;
 export const setFormulaRegistryForTests = (f: FormulaRegistry) => {
   formulas = f;
 };
+/** Client-approved formulas plus the statutory formulas built from the confirmed settings. */
+export const formulasFor = (settings: PayrollSettings): FormulaRegistry => ({ ...buildStatutoryFormulas(settings.statutory), ...formulas });
 
 /** Locks the run row for the rest of the transaction and checks its state. */
 async function lockRun(tx: Tx, id: string, allowed: RunStatus[]) {
@@ -220,7 +223,7 @@ export async function calculate(user: AuthUser, runId: string, ip: string | null
       const run = await lockRun(tx, runId, ['DRAFT', 'CALCULATED']);
       const settings = await getSettings(tx);
       const input = await buildCalculationInput(tx, runId, settings);
-      const calc = calculateRun(input.employees, input.components, input.inputDefs, { year: run.year, month: run.month, rounding: settings.rounding, unusualChangeThresholdPercent: settings.unusualChangeThresholdPercent }, formulas);
+      const calc = calculateRun(input.employees, input.components, input.inputDefs, { year: run.year, month: run.month, rounding: settings.rounding, unusualChangeThresholdPercent: settings.unusualChangeThresholdPercent }, formulasFor(settings));
 
       await tx.payrollLine.deleteMany({ where: { payrollRunId: runId } });
       const lineRows: Prisma.PayrollLineCreateManyInput[] = [];
@@ -282,7 +285,7 @@ export async function calculate(user: AuthUser, runId: string, ip: string | null
 async function assertResultsCurrent(tx: Tx, runId: string, calcHash: string | null) {
   const settings = await getSettings(tx);
   const input = await buildCalculationInput(tx, runId, settings);
-  const calc = calculateRun(input.employees, input.components, input.inputDefs, { year: input.run.year, month: input.run.month, rounding: settings.rounding, unusualChangeThresholdPercent: settings.unusualChangeThresholdPercent }, formulas);
+  const calc = calculateRun(input.employees, input.components, input.inputDefs, { year: input.run.year, month: input.run.month, rounding: settings.rounding, unusualChangeThresholdPercent: settings.unusualChangeThresholdPercent }, formulasFor(settings));
   if (calc.hash !== calcHash) {
     throw new AppError('INVALID_STATE', 'Salary data, inputs or payroll settings changed after this payroll was calculated. Return it to draft and recalculate before continuing.', { reason: 'STALE_CALCULATION' });
   }

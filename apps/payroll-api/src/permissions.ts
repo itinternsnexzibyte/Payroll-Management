@@ -26,6 +26,10 @@ export const PERMISSIONS = {
   'loans.manage': 'Record and close loans and salary advances',
   'bonuses.manage': 'Propose bonuses and incentives (approval needs Approve payroll)',
   'self.service': 'Employee self-service: own payslips, own details and own leave requests',
+  'bank.view': 'View employee bank details (account numbers masked)',
+  'bank.manage': 'Add and change employee bank details',
+  'bank.export': 'Generate the bank salary file for finalised payroll',
+  'integrations.manage': 'Manage the attendance application connection, its API keys and received attendance',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

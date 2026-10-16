@@ -126,7 +126,7 @@ export function registerMasterRoutes(r: ApiRegistry) {
     tag: 'Settings',
     summary: 'Update payroll business settings (rounding, approval policy, version selection, warnings)',
     permission: 'settings.manage',
-    body: settingsSchema.partial(),
+    body: settingsSchema.omit({ statutory: true }).partial(),
     handler: async ({ body, user, ip }) => {
       const before = await getSettings();
       await prisma.$transaction(

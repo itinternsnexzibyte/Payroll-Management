@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { RoundingRule } from './payroll/engine';
 import { prisma, type Tx } from './db';
 import { DEFAULT_ANOMALY_RULES } from './anomalies/rules';
+import { DEFAULT_STATUTORY, statutorySchema } from './statutory/rules';
 
 export const settingsSchema = z.object({
   rounding: z.object({
@@ -30,6 +31,36 @@ export const settingsSchema = z.object({
     payslipsAvailable: z.boolean(),
     leaveDecisions: z.boolean(),
   }),
+  /** Statutory deductions (PF, ESI, TDS) — every figure entered and confirmed by the payroll team. */
+  statutory: statutorySchema,
+  /**
+   * Bank salary file layout. The default is a generic layout only: replace the columns with the
+   * bank's published bulk-payment format before sending a file to the bank.
+   */
+  bankExport: z.object({
+    format: z.enum(['CSV', 'XLSX']),
+    includeHeader: z.boolean(),
+    columns: z
+      .array(
+        z.object({
+          header: z.string().trim().min(1).max(60),
+          field: z.enum(['EMPLOYEE_CODE', 'EMPLOYEE_NAME', 'ACCOUNT_HOLDER', 'ACCOUNT_NUMBER', 'IFSC', 'BANK_NAME', 'NET_PAY', 'PAYMENT_DATE', 'PERIOD', 'FIXED']),
+          /** For FIXED: the text written in every row (e.g. a transaction type the bank requires). */
+          value: z.string().max(60).nullable(),
+        }),
+      )
+      .min(1)
+      .max(30),
+    /** Date format for PAYMENT_DATE. */
+    dateFormat: z.enum(['DD/MM/YYYY', 'DD-MM-YYYY', 'YYYY-MM-DD', 'DDMMYYYY']),
+  }),
+  /** Live attendance sync: maps the attendance application's fields to monthly input columns. */
+  attendanceSync: z.object({
+    enabled: z.boolean(),
+    /** Apply received data to the payroll run immediately (Draft/Calculated runs only). */
+    autoApply: z.boolean(),
+    fieldMap: z.array(z.object({ source: z.string().trim().min(1).max(60), inputKey: z.string().trim().min(1).max(40) })).max(30),
+  }),
   /** Anomaly alert thresholds (change request A). Placeholders until agreed with the client. */
   anomalyRules: z.object({
     enabled: z.boolean(),
@@ -55,6 +86,22 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
   separateApprover: false,
   unusualChangeThresholdPercent: null,
   anomalyRules: DEFAULT_ANOMALY_RULES,
+  statutory: DEFAULT_STATUTORY,
+  bankExport: {
+    format: 'CSV',
+    includeHeader: true,
+    dateFormat: 'DD/MM/YYYY',
+    columns: [
+      { header: 'Employee ID', field: 'EMPLOYEE_CODE', value: null },
+      { header: 'Beneficiary Name', field: 'ACCOUNT_HOLDER', value: null },
+      { header: 'Account Number', field: 'ACCOUNT_NUMBER', value: null },
+      { header: 'IFSC', field: 'IFSC', value: null },
+      { header: 'Amount', field: 'NET_PAY', value: null },
+      { header: 'Payment Date', field: 'PAYMENT_DATE', value: null },
+      { header: 'Narration', field: 'PERIOD', value: null },
+    ],
+  },
+  attendanceSync: { enabled: false, autoApply: false, fieldMap: [] },
   inputMappings: { unpaidLeaveDays: null, advanceRecovery: null, bonus: null, incentive: null },
   emailNotifications: { reviewRequests: true, readyToFinalise: true, payslipsAvailable: true, leaveDecisions: true },
 };

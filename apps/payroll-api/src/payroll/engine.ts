@@ -148,6 +148,7 @@ export function calculateEmployee(
   const byCode = new Map(components.map((c) => [c.code, c]));
   const applicable = components.filter((c) => {
     if (c.basis === 'INPUT') return c.inputKey !== null && numericInputs.has(c.inputKey);
+    if (c.basis === 'FORMULA' && c.formulaRef && formulas[c.formulaRef]?.appliesToAll && employee.salaryValues !== null) return true;
     return Object.prototype.hasOwnProperty.call(values, c.code);
   });
   const applicableCodes = new Set(applicable.map((c) => c.code));
@@ -223,6 +224,10 @@ export function calculateEmployee(
               return r;
             },
             input: (key) => numericInputs.get(key) ?? null,
+            componentOrNull: (dep) => (applicableCodes.has(dep) ? evaluate(dep) : null),
+            note: (key, value) => {
+              detail[key] = value;
+            },
           });
           detail.formulaRef = c.formulaRef;
           detail.workbookReference = formula.workbookReference;
@@ -312,7 +317,7 @@ export function calculateRun(
     components: [...components].sort((a, b) => a.code.localeCompare(b.code)),
     inputDefs: [...inputDefs].sort((a, b) => a.key.localeCompare(b.key)),
     employees: sortedEmployees.map((e) => ({ ...e, salaryValues: e.salaryValues && Object.fromEntries(Object.entries(e.salaryValues).sort()), monthlyInputs: Object.fromEntries(Object.entries(e.monthlyInputs).sort()) })),
-    formulas: Object.keys(formulas).sort(),
+    formulas: Object.keys(formulas).filter((k) => components.some((c) => c.formulaRef === k)).sort().map((k) => [k, formulas[k].fingerprint ?? null]),
   });
   return { results, totals: { gross: sum('gross'), deductions: sum('deductions'), net: sum('net') }, hash: createHash('sha256').update(canonical).digest('hex') };
 }
