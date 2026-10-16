@@ -22,4 +22,7 @@
 | Sign-up approval UI | SIGNUP_REQUIRE_APPROVAL=true creates PENDING accounts but there is no approve/reject screen yet |
 | Notifications | In-app pending-action notifications only |
 | Accessibility | Labels, focus management, keyboard grid navigation and a contrast-checked palette; no formal WCAG audit |
+| Payroll alert thresholds | Placeholder defaults (20 % net, 25 % component, 2× outlier, minimum 100, 3–6 months history) until agreed with the client |
+| Change requests A, B, F | Built but not in the PDF specification; need approval through the change-request process |
+| Deferred change requests | C scenario simulator, D employee document centre, E AI assistant, G operations centre — see [feature-gap-analysis.md](feature-gap-analysis.md) |
 | Load testing | Not performed (scale is about 150 employees and a few users) |

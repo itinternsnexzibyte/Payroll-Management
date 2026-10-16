@@ -3,8 +3,8 @@
 // (see migration 0002_integrity_triggers) in addition to application checks.
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/client"
+  provider      = "prisma-client-js"
+  output        = "../generated/client"
   // native for local development, debian-openssl-3.0.x for the Docker image
   binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
@@ -192,6 +192,8 @@ model Employee {
   inputs         PayrollInput[]
   lines          PayrollLine[]
   payslips       Payslip[]
+  anomalies      PayrollAnomaly[]
+  reconNotes     ReconciliationNote[]
 
   @@index([fullName])
   @@index([status])
@@ -248,15 +250,15 @@ model SalaryComponent {
 /// One version of an employee's salary structure. New effective dates create a new version;
 /// earlier versions are closed (effectiveTo) but never overwritten.
 model SalaryVersion {
-  id            String          @id @default(uuid()) @db.Uuid
-  employeeId    String          @db.Uuid
-  employee      Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  id            String               @id @default(uuid()) @db.Uuid
+  employeeId    String               @db.Uuid
+  employee      Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   versionNo     Int
-  effectiveFrom DateTime        @db.Date
-  effectiveTo   DateTime?       @db.Date
+  effectiveFrom DateTime             @db.Date
+  effectiveTo   DateTime?            @db.Date
   changeReason  String?
-  createdAt     DateTime        @default(now())
-  createdById   String?         @db.Uuid
+  createdAt     DateTime             @default(now())
+  createdById   String?              @db.Uuid
   values        SalaryValue[]
   runEmployees  PayrollRunEmployee[]
 
@@ -314,38 +316,42 @@ enum PayrollStatus {
 }
 
 model PayrollRun {
-  id              String               @id @default(uuid()) @db.Uuid
+  id              String                @id @default(uuid()) @db.Uuid
   year            Int
   month           Int
-  status          PayrollStatus        @default(DRAFT)
-  employeeCount   Int                  @default(0)
-  totalEarnings   Decimal?             @db.Decimal(18, 4)
-  totalDeductions Decimal?             @db.Decimal(18, 4)
-  totalNet        Decimal?             @db.Decimal(18, 4)
+  status          PayrollStatus         @default(DRAFT)
+  employeeCount   Int                   @default(0)
+  totalEarnings   Decimal?              @db.Decimal(18, 4)
+  totalDeductions Decimal?              @db.Decimal(18, 4)
+  totalNet        Decimal?              @db.Decimal(18, 4)
   /// Whether calculation rules were marked client-approved when this run was calculated
-  rulesApproved   Boolean              @default(false)
+  rulesApproved   Boolean               @default(false)
   /// Hash of calculation inputs + configuration, for determinism checks
   calcHash        String?
   calculatedAt    DateTime?
-  calculatedById  String?              @db.Uuid
+  calculatedById  String?               @db.Uuid
   submittedAt     DateTime?
-  submittedById   String?              @db.Uuid
+  submittedById   String?               @db.Uuid
   approvedAt      DateTime?
-  approvedById    String?              @db.Uuid
+  approvedById    String?               @db.Uuid
   finalisedAt     DateTime?
-  finalisedById   String?              @db.Uuid
-  reopenCount     Int                  @default(0)
+  finalisedById   String?               @db.Uuid
+  reopenCount     Int                   @default(0)
   notes           String?
   /// Optimistic concurrency counter, incremented on every state change
-  version         Int                  @default(0)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  createdById     String?              @db.Uuid
+  version         Int                   @default(0)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  createdById     String?               @db.Uuid
   employees       PayrollRunEmployee[]
   inputs          PayrollInput[]
   lines           PayrollLine[]
   events          PayrollRunEvent[]
   payslips        Payslip[]
+  anomalies       PayrollAnomaly[]
+  checklist       PayrollRunChecklist[]
+  reconAsBase     ReconciliationNote[]  @relation("ReconBase")
+  reconAsCompare  ReconciliationNote[]  @relation("ReconCompare")
 
   /// One payroll run per month (business rule pending client confirmation)
   @@unique([year, month])
@@ -355,23 +361,23 @@ model PayrollRun {
 
 /// Employees included in a run, with a snapshot of identity fields and results.
 model PayrollRunEmployee {
-  id                  String         @id @default(uuid()) @db.Uuid
-  payrollRunId        String         @db.Uuid
-  payrollRun          PayrollRun     @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
-  employeeId          String         @db.Uuid
-  employee            Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  salaryVersionId     String?        @db.Uuid
-  salaryVersion       SalaryVersion? @relation(fields: [salaryVersionId], references: [id], onDelete: Restrict)
-  employeeCode        String
-  employeeName        String
-  departmentName      String?
-  designationName     String?
-  gross               Decimal?       @db.Decimal(18, 4)
-  deductions          Decimal?       @db.Decimal(18, 4)
-  net                 Decimal?       @db.Decimal(18, 4)
+  id              String         @id @default(uuid()) @db.Uuid
+  payrollRunId    String         @db.Uuid
+  payrollRun      PayrollRun     @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+  employeeId      String         @db.Uuid
+  employee        Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  salaryVersionId String?        @db.Uuid
+  salaryVersion   SalaryVersion? @relation(fields: [salaryVersionId], references: [id], onDelete: Restrict)
+  employeeCode    String
+  employeeName    String
+  departmentName  String?
+  designationName String?
+  gross           Decimal?       @db.Decimal(18, 4)
+  deductions      Decimal?       @db.Decimal(18, 4)
+  net             Decimal?       @db.Decimal(18, 4)
   /// OK | WARNING | ERROR (missing inputs / invalid results)
-  resultStatus        String         @default("PENDING")
-  exceptions          Json           @default("[]")
+  resultStatus    String         @default("PENDING")
+  exceptions      Json           @default("[]")
 
   @@unique([payrollRunId, employeeId])
   @@index([employeeId])
@@ -471,4 +477,205 @@ model ImportJob {
 
   @@index([createdAt])
   @@map("import_jobs")
+}
+
+// ---------------------------------------------------------------- Anomaly alerts (change request A)
+
+enum AnomalySeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AnomalyStatus {
+  OPEN
+  REVIEWED
+  /// No longer detected after a recalculation (kept for history)
+  CLEARED
+}
+
+/// Explainable, rule-based alerts on a payroll run. Separate from payroll results: detection and
+/// review never change runs, lines or finalised snapshots.
+model PayrollAnomaly {
+  id             String                @id @default(uuid()) @db.Uuid
+  payrollRunId   String                @db.Uuid
+  payrollRun     PayrollRun            @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+  employeeId     String?               @db.Uuid
+  employee       Employee?             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  employeeCode   String?
+  employeeName   String?
+  componentCode  String?
+  rule           String
+  severity       AnomalySeverity
+  /// Stable identity of the alert within a run (rule + employee + component)
+  fingerprint    String
+  /// Hash of the values behind the alert; a change re-opens a reviewed alert
+  signature      String
+  message        String
+  details        Json                  @default("{}")
+  status         AnomalyStatus         @default(OPEN)
+  /// EXPECTED | CORRECTED | NOT_AN_ISSUE
+  reviewOutcome  String?
+  reviewComment  String?
+  reviewedById   String?               @db.Uuid
+  reviewedByName String?
+  reviewedAt     DateTime?
+  detectedAt     DateTime              @default(now())
+  lastDetectedAt DateTime              @default(now())
+  clearedAt      DateTime?
+  events         PayrollAnomalyEvent[]
+
+  @@unique([payrollRunId, fingerprint])
+  @@index([payrollRunId, status])
+  @@index([employeeId])
+  @@map("payroll_anomalies")
+}
+
+model PayrollAnomalyEvent {
+  id         String         @id @default(uuid()) @db.Uuid
+  anomalyId  String         @db.Uuid
+  anomaly    PayrollAnomaly @relation(fields: [anomalyId], references: [id], onDelete: Restrict)
+  /// DETECTED | REVIEWED | REOPENED | CLEARED | REDETECTED
+  action     String
+  comment    String?
+  actorId    String?        @db.Uuid
+  actorName  String?
+  occurredAt DateTime       @default(now())
+
+  @@index([anomalyId, occurredAt])
+  @@map("payroll_anomaly_events")
+}
+
+// ---------------------------------------------------------------- Reconciliation (change request B)
+
+enum ReconciliationClass {
+  /// Difference is understood and correct (e.g. salary revision, bonus)
+  EXPECTED
+  /// Difference is wrong or unexplained and needs action
+  DISCREPANCY
+  /// A discrepancy that has been corrected
+  RESOLVED
+}
+
+/// Explanation for a difference between two payroll runs, per employee (componentCode = "") or
+/// per employee and component.
+model ReconciliationNote {
+  id             String              @id @default(uuid()) @db.Uuid
+  baseRunId      String              @db.Uuid
+  baseRun        PayrollRun          @relation("ReconBase", fields: [baseRunId], references: [id], onDelete: Restrict)
+  compareRunId   String              @db.Uuid
+  compareRun     PayrollRun          @relation("ReconCompare", fields: [compareRunId], references: [id], onDelete: Restrict)
+  employeeId     String              @db.Uuid
+  employee       Employee            @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  componentCode  String              @default("")
+  classification ReconciliationClass
+  note           String
+  createdAt      DateTime            @default(now())
+  createdById    String?             @db.Uuid
+  createdByName  String?
+  updatedAt      DateTime            @updatedAt
+  updatedById    String?             @db.Uuid
+  updatedByName  String?
+
+  @@unique([baseRunId, compareRunId, employeeId, componentCode])
+  @@index([compareRunId])
+  @@map("reconciliation_notes")
+}
+
+// ---------------------------------------------------------------- Knowledge & handover (change request F)
+
+enum KnowledgeCategory {
+  PROCEDURE
+  COMPONENT
+  BUSINESS_RULE
+  VALIDATION_ERROR
+  ONBOARDING
+}
+
+enum KnowledgeStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// Current version of a knowledge article. Every save also writes an immutable version row.
+model KnowledgeArticle {
+  id              String                    @id @default(uuid()) @db.Uuid
+  slug            String                    @unique
+  category        KnowledgeCategory
+  title           String
+  body            String
+  /// Linked salary component (COMPONENT articles)
+  componentCode   String?
+  /// Linked exception / validation code (VALIDATION_ERROR articles), e.g. MISSING_INPUT
+  errorCode       String?
+  status          KnowledgeStatus           @default(DRAFT)
+  /// false = the rule depends on the client and has not been confirmed in writing
+  clientConfirmed Boolean                   @default(false)
+  ownerId         String?                   @db.Uuid
+  ownerName       String?
+  reviewDueAt     DateTime?                 @db.Date
+  lastReviewedAt  DateTime?
+  lastReviewedBy  String?
+  currentVersion  Int                       @default(1)
+  archivedAt      DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  createdById     String?                   @db.Uuid
+  updatedById     String?                   @db.Uuid
+  versions        KnowledgeArticleVersion[]
+  checklistItems  ChecklistItem[]
+
+  @@index([category])
+  @@index([componentCode])
+  @@index([errorCode])
+  @@map("knowledge_articles")
+}
+
+model KnowledgeArticleVersion {
+  id            String           @id @default(uuid()) @db.Uuid
+  articleId     String           @db.Uuid
+  article       KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Restrict)
+  version       Int
+  title         String
+  body          String
+  changeNote    String
+  createdAt     DateTime         @default(now())
+  createdById   String?          @db.Uuid
+  createdByName String?
+
+  @@unique([articleId, version])
+  @@map("knowledge_article_versions")
+}
+
+/// Template of the monthly payroll checklist.
+model ChecklistItem {
+  id          String                @id @default(uuid()) @db.Uuid
+  label       String
+  description String?
+  articleId   String?               @db.Uuid
+  article     KnowledgeArticle?     @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  sortOrder   Int                   @default(0)
+  active      Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  runEntries  PayrollRunChecklist[]
+
+  @@map("payroll_checklist_items")
+}
+
+/// Checklist progress for one payroll run.
+model PayrollRunChecklist {
+  id           String        @id @default(uuid()) @db.Uuid
+  payrollRunId String        @db.Uuid
+  payrollRun   PayrollRun    @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+  itemId       String        @db.Uuid
+  item         ChecklistItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  done         Boolean       @default(false)
+  note         String?
+  doneById     String?       @db.Uuid
+  doneByName   String?
+  doneAt       DateTime?
+
+  @@unique([payrollRunId, itemId])
+  @@map("payroll_run_checklist")
 }

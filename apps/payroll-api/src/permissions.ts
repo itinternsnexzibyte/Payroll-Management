@@ -19,6 +19,7 @@ export const PERMISSIONS = {
   'payroll.reopen': 'Re-open finalised payroll (reason required)',
   'payslips.generate': 'Generate and download payslips',
   'reports.view': 'View and export payroll reports',
+  'knowledge.manage': 'Edit the knowledge & handover centre and the monthly checklist',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

@@ -1,10 +1,13 @@
 import { z } from 'zod';
-import { idParam, listQuery, notFound, skipTake, toIsoDate, toPage, type ApiRegistry, type AuthUser } from '@nexzi/server-core';
+import { createLogger, idParam, listQuery, notFound, skipTake, toIsoDate, toPage, type ApiRegistry, type AuthUser } from '@nexzi/server-core';
 import { prisma, Prisma } from '../db';
 import { config } from '../config';
 import { getSettings } from '../settings';
 import { isEligible, selectSalaryVersion } from './engine';
 import * as svc from './service';
+import { scanRun } from '../anomalies/service';
+
+const alertLog = createLogger('payroll-api-alerts', process.env.LOG_LEVEL);
 
 export const canSeeAmounts = (u: AuthUser) => u.permissions.has('payroll.view_amounts');
 const amt = (u: AuthUser, v: Prisma.Decimal | null | undefined) => (canSeeAmounts(u) && v !== null && v !== undefined ? v.toString() : null);
@@ -196,7 +199,16 @@ export function registerPayrollRoutes(r: ApiRegistry) {
     summary: 'Calculate payroll on the server (deterministic; safe to repeat)',
     permission: 'payroll.calculate',
     params: runIdParam,
-    handler: async ({ params, user, ip }) => svc.calculate(user, params.id, ip),
+    handler: async ({ params, user, ip }) => {
+      const result = await svc.calculate(user, params.id, ip);
+      // Anomaly alerts run after the calculation has committed; a failure here is logged and
+      // never blocks or alters payroll (the scan can be repeated from the run screen).
+      const alerts = await scanRun(params.id, user, ip).catch((err: Error) => {
+        alertLog.error({ runId: params.id, err: err.message }, 'Anomaly scan after calculation failed');
+        return null;
+      });
+      return { ...result, alerts };
+    },
   });
 
   r.add({

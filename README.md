@@ -31,6 +31,9 @@ first-party (`HttpOnly`, `SameSite=Strict`).
   - **Finalisation and re-opening:** finalised results are immutable (API and database triggers). Re-opening needs an Administrator and a reason, and is audit-logged.
 - **Outputs:** payslip preview, individual stored PDFs, bulk print-ready PDF; monthly summary,
   earnings, deductions, net payable and employee salary statement reports (screen/PDF/XLSX).
+- **Payroll alerts** *(change request A)*: explainable, configurable checks against earlier finalised months (net and component changes, unusual monthly amounts, repeated adjustments, possible duplicates) with a review trail.
+- **Reconciliation** *(change request B)*: compare any two months employee- and component-wise, explain differences as expected or discrepancies, export to PDF/XLSX.
+- **Knowledge centre** *(change request F)*: versioned procedures, component notes, business rules and error resolutions with owners and review dates; undocumented items are flagged; a monthly checklist per run.
 - **Sign-up:** self-service sign-up with an emailed 6-digit verification code, then name and password (no admin approval by default; optional domain allow-list).
 - **Administration:** users, configurable role permissions (Administrator, Payroll User, optional
   Viewer), an append-only audit log, and payroll settings (rounding, approval policy, input columns).
@@ -94,4 +97,5 @@ Health: `GET /health` (liveness) and `GET /ready` (database reachable).
 [API reference](docs/api-reference.md) · [Sign-up with email verification](docs/signup-and-email.md) · [Business rules](docs/payroll-business-rules.md) ·
 [Security](docs/security.md) · [Testing](docs/testing.md) · [Deployment](docs/deployment.md) ·
 [Backup & restore](docs/backup-and-restore.md) · [Known gaps](docs/known-gaps.md) ·
-[Client questions](docs/client-questions.md)
+[Client questions](docs/client-questions.md) · [Feature-gap analysis](docs/feature-gap-analysis.md) ·
+[Change requests A, B, F](docs/change-requests.md)

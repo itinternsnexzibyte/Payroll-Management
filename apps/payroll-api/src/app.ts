@@ -11,6 +11,9 @@ import { registerEmployeeRoutes } from './modules/employees';
 import { registerSalaryRoutes } from './modules/salary';
 import { registerPayrollRoutes } from './payroll/routes';
 import { registerOutputRoutes } from './output/routes';
+import { registerAnomalyRoutes } from './anomalies/routes';
+import { registerReconciliationRoutes } from './reconciliation/routes';
+import { registerKnowledgeRoutes } from './knowledge/routes';
 
 export const logger = createLogger('payroll-api', config.LOG_LEVEL);
 
@@ -51,6 +54,9 @@ export function createApp() {
       registerSalaryRoutes(r);
       registerPayrollRoutes(r);
       registerOutputRoutes(r);
+      registerAnomalyRoutes(r);
+      registerReconciliationRoutes(r);
+      registerKnowledgeRoutes(r);
     },
     meExtras: async () => ({ app: 'payroll', rulesApproved: config.PAYROLL_RULES_APPROVED }),
   });

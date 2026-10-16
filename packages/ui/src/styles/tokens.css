@@ -362,7 +362,9 @@
 @keyframes fx-step { 0% { box-shadow: 0 0 0 0 rgb(12 184 132 / 0.5); } 70%, 100% { box-shadow: 0 0 0 9px rgb(12 184 132 / 0); } }
 
 /* Page content and cards rise in. */
-.fx-enter { animation: fx-enter 0.55s var(--ease-out-expo) both; }
+/* "backwards" (not "both"): once finished, no transform remains, so fixed-position dialogs inside
+   animated content stay relative to the window. */
+.fx-enter { animation: fx-enter 0.55s var(--ease-out-expo) backwards; }
 @keyframes fx-enter { from { opacity: 0; transform: translateY(10px); } }
 .fx-card { transition: box-shadow 0.3s ease, transform 0.35s var(--ease-out-expo), border-color 0.3s ease; }
 .fx-card:hover { box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 14px 32px -16px rgb(30 64 175 / 0.22); border-color: #d5dcea; }

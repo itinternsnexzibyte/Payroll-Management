@@ -1,12 +1,14 @@
 'use client';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calculator, CheckCheck, Download, Eye, FileStack, Lock, Printer, RotateCcw, Send, Undo2 } from 'lucide-react';
+import { ArrowLeftRight, BookOpen, Calculator, CheckCheck, Download, Eye, FileStack, Lock, Printer, RotateCcw, Send, Undo2 } from 'lucide-react';
 import {
   Alert,
   Badge,
   Button,
+  ButtonLink,
   Card,
   ConfirmDialog,
   DataTable,
@@ -33,9 +35,11 @@ import {
   useToast,
 } from '@nexzi/ui';
 import { InputGrid } from '@/components/input-grid';
+import { RunAlerts } from '@/components/anomalies';
+import { RunChecklist } from '@/components/run-checklist';
 import type { RunDetail, RunStatus } from '@/lib/types';
 
-type Tab = 'inputs' | 'results' | 'exceptions' | 'payslips' | 'timeline';
+type Tab = 'inputs' | 'results' | 'exceptions' | 'alerts' | 'checklist' | 'payslips' | 'timeline';
 type Action = 'calculate' | 'submit' | 'return' | 'approve' | 'finalise' | 'reopen';
 
 export default function RunPage() {
@@ -89,7 +93,7 @@ function RunWorkspace() {
     mutationFn: ({ action, reason }: { action: Action; reason?: string }) => {
       const path = { calculate: 'calculate', submit: 'submit-review', return: 'return', approve: 'approve', finalise: 'finalise', reopen: 'reopen' }[action];
       const body = action === 'submit' ? { acknowledgeWarnings: ackWarnings } : reason !== undefined ? { reason } : undefined;
-      return post<{ status: string; ok?: number; warning?: number; error?: number }>(`/payroll-runs/${id}/${path}`, body);
+      return post<{ status: string; ok?: number; warning?: number; error?: number; alerts?: { enabled: boolean; opened: number; reopened: number } | null }>(`/payroll-runs/${id}/${path}`, body);
     },
     onSuccess: (res, { action }) => {
       setConfirm(null);
@@ -99,8 +103,10 @@ function RunWorkspace() {
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       qc.invalidateQueries({ queryKey: ['notifications'] });
       if (action === 'calculate') {
-        toast.success(`Calculated: ${res.ok} OK, ${res.warning} with warnings, ${res.error} with errors.`);
-        setTab(res.error || res.warning ? 'exceptions' : 'results');
+        const fresh = res.alerts?.enabled ? res.alerts.opened + res.alerts.reopened : 0;
+        toast.success(`Calculated: ${res.ok} OK, ${res.warning} with warnings, ${res.error} with errors.${fresh ? ` ${fresh} new payroll alert(s) to review.` : ''}`);
+        qc.invalidateQueries({ queryKey: ['run-alerts', id] });
+        setTab(res.error || res.warning ? 'exceptions' : fresh && run?.canSeeAmounts ? 'alerts' : 'results');
       } else toast.success(`Payroll is now ${humanize(res.status)}.`);
     },
     onError: (e) => {
@@ -147,6 +153,11 @@ function RunWorkspace() {
         breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Payroll runs', href: '/payroll' }, { label: run.period }]}
         actions={
           <>
+            {run.status !== 'DRAFT' && run.canSeeAmounts && can('reports.view') && (
+              <ButtonLink href={`/reconciliation?compareRunId=${run.id}`} variant="ghost" icon={<ArrowLeftRight className="h-4 w-4" />}>
+                Reconcile
+              </ButtonLink>
+            )}
             {has('calculate') && (
               <Button icon={<Calculator className="h-4 w-4" />} onClick={() => setConfirm('calculate')}>
                 {run.status === 'DRAFT' ? 'Calculate' : 'Recalculate'}
@@ -213,6 +224,8 @@ function RunWorkspace() {
           { id: 'inputs', label: 'Monthly inputs' },
           { id: 'results', label: 'Results', hidden: run.status === 'DRAFT' },
           { id: 'exceptions', label: `Exceptions (${exceptionCount})`, hidden: run.status === 'DRAFT' },
+          { id: 'alerts', label: 'Payroll alerts', hidden: run.status === 'DRAFT' || !run.canSeeAmounts },
+          { id: 'checklist', label: 'Checklist' },
           { id: 'payslips', label: 'Payslips', hidden: run.status === 'DRAFT' || !can('payslips.generate') },
           { id: 'timeline', label: 'Timeline' },
         ]}
@@ -221,6 +234,8 @@ function RunWorkspace() {
         {tab === 'inputs' && <InputGrid runId={run.id} editable={has('editInputs')} onSaved={() => q.refetch()} />}
         {tab === 'results' && <Results run={run} />}
         {tab === 'exceptions' && <Exceptions run={run} />}
+        {tab === 'alerts' && <RunAlerts runId={run.id} canRescan={can('payroll.calculate') || can('payroll.approve')} />}
+        {tab === 'checklist' && <RunChecklist runId={run.id} />}
         {tab === 'payslips' && <Payslips run={run} />}
         {tab === 'timeline' && <Timeline run={run} />}
       </Card>
@@ -377,6 +392,13 @@ function EmployeeDetail({ runId, employeeId, onClose }: { runId: string; employe
 
 function Exceptions({ run }: { run: RunDetail }) {
   const rows = run.employees.filter((e) => e.exceptions.length);
+  const coverage = useQuery({
+    queryKey: ['knowledge-coverage'],
+    queryFn: () => get<{ validationErrors: { code: string; id: string | null; state: string }[] }>('/knowledge/coverage'),
+    staleTime: 60_000,
+    enabled: rows.length > 0,
+  });
+  const howTo = new Map((coverage.data?.validationErrors ?? []).filter((v) => v.id && v.state !== 'DRAFT').map((v) => [v.code, v.id!]));
   if (!rows.length) return <EmptyState title="No exceptions" hint="Every employee was calculated without errors or warnings." />;
   return (
     <ul className="divide-y divide-line">
@@ -391,6 +413,11 @@ function Exceptions({ run }: { run: RunDetail }) {
               <li key={i} className="flex items-start gap-2 text-sm">
                 <StatusBadge status={x.severity} />
                 <span className="text-ink">{x.message}</span>
+                {howTo.has(x.code) && (
+                  <Link href={`/knowledge/${howTo.get(x.code)}`} className="ml-1 inline-flex shrink-0 items-center gap-1 text-xs font-medium text-cobalt hover:underline">
+                    <BookOpen className="h-3.5 w-3.5" /> How to resolve
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

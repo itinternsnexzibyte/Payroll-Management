@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { RoundingRule } from './payroll/engine';
 import { prisma, type Tx } from './db';
+import { DEFAULT_ANOMALY_RULES } from './anomalies/rules';
 
 export const settingsSchema = z.object({
   rounding: z.object({
@@ -12,6 +13,16 @@ export const settingsSchema = z.object({
   requireApprovalStep: z.boolean(),
   separateApprover: z.boolean(),
   unusualChangeThresholdPercent: z.number().min(1).max(1000).nullable(),
+  /** Anomaly alert thresholds (change request A). Placeholders until agreed with the client. */
+  anomalyRules: z.object({
+    enabled: z.boolean(),
+    netChangePercent: z.number().min(1).max(1000),
+    componentChangePercent: z.number().min(1).max(1000),
+    minAbsoluteChange: z.number().min(0).max(10_000_000),
+    historyMonths: z.number().int().min(2).max(24),
+    minHistoryMonths: z.number().int().min(2).max(24),
+    outlierMultiplier: z.number().min(1).max(20),
+  }),
 });
 
 export type PayrollSettings = z.infer<typeof settingsSchema> & { rounding: RoundingRule };
@@ -26,6 +37,7 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
   requireApprovalStep: true,
   separateApprover: false,
   unusualChangeThresholdPercent: null,
+  anomalyRules: DEFAULT_ANOMALY_RULES,
 };
 
 export async function getSettings(db: Tx | typeof prisma = prisma): Promise<PayrollSettings> {

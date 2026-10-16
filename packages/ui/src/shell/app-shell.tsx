@@ -206,7 +206,7 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
           </aside>
         </div>
       )}
-      <div className={cn('relative z-10 transition-[padding] duration-300', collapsed ? 'lg:pl-[68px]' : 'lg:pl-64')}>
+      <div className={cn('relative transition-[padding] duration-300', collapsed ? 'lg:pl-[68px]' : 'lg:pl-64')}>
         <header className="no-print sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-white/60 bg-white/70 px-4 shadow-[0_1px_0_rgb(30_64_175/0.06)] backdrop-blur-xl sm:px-6">
           <button className="fx-btn rounded-lg p-2 text-primary hover:bg-mist lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
             <Menu className="h-5 w-5" />

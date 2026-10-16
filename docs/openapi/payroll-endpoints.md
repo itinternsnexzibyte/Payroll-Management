@@ -4,6 +4,10 @@
 | Auth | `POST` | `/auth/logout` | Sign out and revoke the current session | signed in |
 | Auth | `GET` | `/auth/me` | Current user, role and permissions | signed in |
 | Auth | `POST` | `/auth/change-password` | Change own password (revokes other sessions) | signed in |
+| Auth | `GET` | `/auth/signup/config` | Whether self-service sign-up is available | public |
+| Auth | `POST` | `/auth/signup/start` | Step 1: send a 6-digit verification code to the email address | public |
+| Auth | `POST` | `/auth/signup/verify` | Step 2: check the code; returns a short-lived sign-up token | public |
+| Auth | `POST` | `/auth/signup/complete` | Step 3: set name and password and create the account | public |
 | Users & Roles | `GET` | `/users` | List users | users.manage |
 | Users & Roles | `POST` | `/users` | Create a user with a temporary password (must be changed at first sign-in) | users.manage |
 | Users & Roles | `PUT` | `/users/{id}` | Update a user (name, role, status) | users.manage |
@@ -68,3 +72,27 @@
 | Reports | `GET` | `/reports/employee-statement` | Employee-wise salary statement (month by month) | reports.view |
 | Dashboard | `GET` | `/dashboard` | Dashboard figures from live data (amounts only with permission) | signed in |
 | Dashboard | `GET` | `/notifications` | Pending payroll actions for the current user | signed in |
+| Payroll Alerts | `GET` | `/payroll-runs/{id}/anomalies` | Explainable anomaly alerts for one payroll run, with counts | payroll.view |
+| Payroll Alerts | `POST` | `/payroll-runs/{id}/anomalies/scan` | Re-run the anomaly rules for a calculated run (idempotent; never changes payroll results) | payroll.calculate, payroll.approve |
+| Payroll Alerts | `GET` | `/anomalies` | Alert history across payroll runs (search, filter, paginate) | payroll.view |
+| Payroll Alerts | `GET` | `/anomalies/{id}` | One alert with its full review history | payroll.view |
+| Payroll Alerts | `POST` | `/anomalies/{id}/review` | Mark an open alert as reviewed with an outcome and comment | payroll.calculate, payroll.approve |
+| Payroll Alerts | `POST` | `/anomalies/{id}/reopen` | Re-open a reviewed alert (reason required) | payroll.calculate, payroll.approve |
+| Reconciliation | `GET` | `/reconciliation` | Compare two calculated payroll months: employee-wise and component-wise differences with explanations | reports.view |
+| Reconciliation | `GET` | `/reconciliation/export` | Download the reconciliation as PDF or XLSX (same filters as the screen) | reports.view |
+| Reconciliation | `PUT` | `/reconciliation/notes` | Record or update the explanation for an employee (or one of their components) between two months | payroll.calculate, payroll.approve |
+| Knowledge | `GET` | `/knowledge/articles` | Search knowledge articles (published only, unless you can edit the knowledge centre) | signed in |
+| Knowledge | `POST` | `/knowledge/articles` | Create an article (version 1) | knowledge.manage |
+| Knowledge | `GET` | `/knowledge/articles/{id}` | One article with its version history | signed in |
+| Knowledge | `PUT` | `/knowledge/articles/{id}` | Save a new version of an article (optimistic concurrency on the version number) | knowledge.manage |
+| Knowledge | `GET` | `/knowledge/articles/{id}/versions/{version}` | The text of an earlier version | signed in |
+| Knowledge | `POST` | `/knowledge/articles/{id}/review` | Record that the article was reviewed and is still correct; optionally set the next review date | knowledge.manage |
+| Knowledge | `POST` | `/knowledge/articles/{id}/archive` | Archive an article (kept with its history; hidden from search) | knowledge.manage |
+| Knowledge | `POST` | `/knowledge/articles/{id}/restore` | Restore an archived article | knowledge.manage |
+| Knowledge | `GET` | `/knowledge/owners` | Active users who can own documentation | knowledge.manage |
+| Knowledge | `GET` | `/knowledge/coverage` | What is documented: components and validation errors without a published article, unconfirmed rules, overdue reviews | signed in |
+| Knowledge | `GET` | `/knowledge/checklist-items` | The monthly payroll checklist template | signed in |
+| Knowledge | `POST` | `/knowledge/checklist-items` | Add a checklist step | knowledge.manage |
+| Knowledge | `PUT` | `/knowledge/checklist-items/{id}` | Edit, reorder or deactivate a checklist step | knowledge.manage |
+| Knowledge | `GET` | `/payroll-runs/{id}/checklist` | Checklist progress for a payroll run | payroll.view |
+| Knowledge | `PUT` | `/payroll-runs/{id}/checklist/{itemId}` | Tick or untick a checklist step for a run (process tracking only; never changes payroll) | payroll.input, payroll.calculate, payroll.approve, payroll.finalise |

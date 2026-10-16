@@ -28,10 +28,10 @@ import {
   useToast,
 } from '@nexzi/ui';
 import { useInputDefinitions } from '@/lib/hooks';
-import type { InputDefinition, Settings } from '@/lib/types';
+import type { AnomalyRules, InputDefinition, Settings } from '@/lib/types';
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<'rules' | 'inputs'>('rules');
+  const [tab, setTab] = useState<'rules' | 'inputs' | 'alerts'>('rules');
   return (
     <RequirePermission permission="settings.manage">
       <PageHeader title="Payroll settings" description="Business rules applied to every payroll calculation. Every change is audit-logged." breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Payroll settings' }]} />
@@ -41,10 +41,79 @@ export default function SettingsPage() {
         tabs={[
           { id: 'rules', label: 'Calculation & approval' },
           { id: 'inputs', label: 'Monthly input columns' },
+          { id: 'alerts', label: 'Payroll alerts' },
         ]}
       />
-      {tab === 'rules' ? <RulesForm /> : <InputDefinitions />}
+      {tab === 'rules' ? <RulesForm /> : tab === 'inputs' ? <InputDefinitions /> : <AlertRulesForm />}
     </RequirePermission>
+  );
+}
+
+const ALERT_FIELDS: { key: Exclude<keyof AnomalyRules, 'enabled'>; label: string; hint: string; min: number; integer?: boolean }[] = [
+  { key: 'netChangePercent', label: 'Net pay change (%)', hint: 'Alert when net pay differs from the last finalised month by at least this much.', min: 1 },
+  { key: 'componentChangePercent', label: 'Component change (%)', hint: 'For fixed, percentage and formula components.', min: 1 },
+  { key: 'minAbsoluteChange', label: 'Ignore differences below (amount)', hint: 'Avoids alerts on small amounts and rounding.', min: 0 },
+  { key: 'outlierMultiplier', label: 'Monthly amount outlier (× largest earlier)', hint: 'For amounts entered each month, such as bonus or deductions.', min: 1 },
+  { key: 'historyMonths', label: 'Months of history to compare', hint: 'Earlier finalised months used for monthly amounts.', min: 2, integer: true },
+  { key: 'minHistoryMonths', label: 'Minimum history needed', hint: 'The outlier check waits until this many months exist.', min: 2, integer: true },
+];
+
+function AlertRulesForm() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const q = useQuery({ queryKey: ['settings'], queryFn: () => get<Settings>('/settings') });
+  const [r, setR] = useState<Record<string, string> | null>(null);
+  const [enabled, setEnabled] = useState(true);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (q.data) {
+      setEnabled(q.data.anomalyRules.enabled);
+      setR(Object.fromEntries(ALERT_FIELDS.map((f) => [f.key, String(q.data.anomalyRules[f.key])])));
+    }
+  }, [q.data]);
+  if (q.isLoading || !r) return <Spinner />;
+
+  const save = async () => {
+    const fe: Record<string, string> = {};
+    for (const f of ALERT_FIELDS) {
+      const n = Number(r[f.key]);
+      if (r[f.key].trim() === '' || !Number.isFinite(n) || n < f.min || (f.integer && !Number.isInteger(n))) fe[f.key] = `Enter ${f.integer ? 'a whole number' : 'a number'} of at least ${f.min}.`;
+    }
+    if (!fe.minHistoryMonths && !fe.historyMonths && Number(r.minHistoryMonths) > Number(r.historyMonths)) fe.minHistoryMonths = 'Cannot be more than the months of history.';
+    setErrors(fe);
+    if (Object.keys(fe).length) return;
+    setSaving(true);
+    try {
+      await put('/settings', { anomalyRules: { enabled, ...Object.fromEntries(ALERT_FIELDS.map((f) => [f.key, Number(r[f.key])])) } });
+      await qc.invalidateQueries({ queryKey: ['settings'] });
+      toast.success('Alert rules saved. Use “Check again” on a payroll run, or recalculate, to apply them.');
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card title="Payroll alert rules" className="max-w-4xl">
+      <Alert tone="info" className="mb-5">
+        Alerts compare each payroll with the employee&apos;s earlier finalised months and explain what looks unusual. They never change payroll results. These thresholds are starting values until agreed with the client.
+      </Alert>
+      <Checkbox label="Run payroll alerts after every calculation" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        {ALERT_FIELDS.map((f) => (
+          <Field key={f.key} label={f.label} htmlFor={`ar-${f.key}`} hint={f.hint} error={errors[f.key]}>
+            <Input id={`ar-${f.key}`} inputMode="decimal" value={r[f.key]} disabled={!enabled} invalid={!!errors[f.key]} onChange={(e) => setR({ ...r, [f.key]: e.target.value })} />
+          </Field>
+        ))}
+      </div>
+      <div className="mt-6 flex justify-end">
+        <Button loading={saving} onClick={save}>
+          Save alert rules
+        </Button>
+      </div>
+    </Card>
   );
 }
 

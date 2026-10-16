@@ -42,8 +42,13 @@ erDiagram
 | `payroll_run_events` | Timeline with actor and reason |
 | `payslips` | Stored PDF reference (random key + SHA-256); superseded on re-open |
 | `import_jobs` | Import previews, mapping, results and failed rows |
+| `payroll_anomalies` / `payroll_anomaly_events` | Payroll alerts per run: unique (run, fingerprint), severity, status, review; event trail is append-only (trigger) |
+| `reconciliation_notes` | Explanations between two runs: unique (base run, compare run, employee, component); runs must differ (check) |
+| `knowledge_articles` / `knowledge_article_versions` | Knowledge centre: current article plus immutable versions, unique (article, version) (trigger blocks UPDATE/DELETE) |
+| `payroll_checklist_items` / `payroll_run_checklist` | Monthly checklist template and per-run progress, unique (run, step) |
 
 | Migration | Content |
 |---|---|
 | `20261015162158_init` | Tables, enums, foreign keys (RESTRICT to protect history), indexes |
+| `20261016104813_anomalies_reconciliation_knowledge` | Change requests A, B, F: alert, reconciliation, knowledge and checklist tables, append-only triggers, distinct-runs check |
 | `20261015170000_integrity_triggers` | Append-only audit, finalised-run guards, immutable salary values, case-insensitive unique indexes |

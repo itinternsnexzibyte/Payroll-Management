@@ -2,9 +2,6 @@ import { z } from 'zod';
 import {
   AppError,
   FileStorage,
-  XLSX_MIME,
-  attachment,
-  buildXlsx,
   dec,
   Dec,
   idParam,
@@ -13,14 +10,13 @@ import {
   renderPdf,
   type ApiRegistry,
   type AuthUser,
-  type SheetColumn,
 } from '@nexzi/server-core';
-import type { Response } from 'express';
 import { prisma, Prisma } from '../db';
 import { audit } from '../audit';
 import { config } from '../config';
 import { periodLabel } from '../payroll/service';
-import { renderPayslipHtml, renderReportHtml, type PayslipData, type ReportColumn, type ReportData } from './templates';
+import { renderPayslipHtml, type PayslipData, type ReportColumn, type ReportData } from './templates';
+import { sendPdf, sendReport } from './report-export';
 
 export const storage = new FileStorage(config.STORAGE_DIR);
 
@@ -69,12 +65,6 @@ async function payslipData(runId: string, employeeIds?: string[]): Promise<Paysl
         };
       }),
   };
-}
-
-function sendPdf(res: Response, pdf: Buffer, filename: string, inline: boolean) {
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', inline ? `inline; filename="${filename.replace(/[^\w.\-]+/g, '_')}"` : attachment(filename));
-  res.send(pdf);
 }
 
 const canSeeAmounts = (u: AuthUser) => u.permissions.has('payroll.view_amounts');
@@ -186,24 +176,6 @@ export function registerOutputRoutes(r: ApiRegistry) {
 
   // ------------------------------------------------------------------ Reports
   const formatQ = z.enum(['json', 'pdf', 'xlsx']).default('json');
-
-  async function sendReport(res: Response, format: 'json' | 'pdf' | 'xlsx', report: ReportData, filename: string) {
-    if (format === 'json') return report;
-    if (format === 'pdf') {
-      const pdf = await renderPdf(renderReportHtml(report), { landscape: report.columns.length > 7, footerText: report.title });
-      sendPdf(res, pdf, `${filename}.pdf`, false);
-      return;
-    }
-    const cols: SheetColumn[] = report.columns.map((c) => ({ header: c.header, key: c.key, width: c.numeric ? 14 : 22, numFmt: c.numeric ? '#,##0.00' : undefined }));
-    const toCell = (row: Record<string, string | number | null>) =>
-      Object.fromEntries(report.columns.map((c) => [c.key, c.numeric && row[c.key] !== null && row[c.key] !== '' ? Number(row[c.key]) : row[c.key]]));
-    const rows = report.rows.map(toCell);
-    if (report.totals) rows.push(toCell(report.totals));
-    const buf = await buildXlsx([{ name: report.title.slice(0, 31), title: [report.title, report.subtitle, ...report.banners], columns: cols, rows }]);
-    res.setHeader('Content-Type', XLSX_MIME);
-    res.setHeader('Content-Disposition', attachment(`${filename}.xlsx`));
-    res.send(buf);
-  }
 
   async function loadRun(runId: string) {
     const run = await prisma.payrollRun.findUnique({ where: { id: runId } });

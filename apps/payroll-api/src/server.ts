@@ -1,6 +1,7 @@
 import { closePdfBrowser, passwordSchema } from '@nexzi/server-core';
 import { createApp, logger } from './app';
 import { createUser, ensureRoles } from './bootstrap';
+import { ensureDefaultChecklist } from './knowledge/routes';
 import { config } from './config';
 import { prisma } from './db';
 
@@ -11,6 +12,7 @@ import { prisma } from './db';
  */
 async function prepareDatabase() {
   await ensureRoles();
+  await ensureDefaultChecklist();
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim();
   if (!email) return;
   if ((await prisma.user.count({ where: { role: { code: 'ADMIN' }, status: 'ACTIVE' } })) > 0) return;

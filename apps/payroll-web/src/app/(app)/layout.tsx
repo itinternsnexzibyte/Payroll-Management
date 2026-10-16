@@ -1,17 +1,20 @@
 'use client';
 import { Suspense } from 'react';
-import { BarChart3, Building2, CalendarCheck2, FileSpreadsheet, LayoutDashboard, ScrollText, Settings2, ShieldCheck, Upload, Users, UsersRound, Wallet } from 'lucide-react';
+import { ArrowLeftRight, BarChart3, BookOpen, Building2, CalendarCheck2, FileSpreadsheet, LayoutDashboard, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, Users, UsersRound, Wallet } from 'lucide-react';
 import { AppShell, BrandMark, Spinner, useAuth, type NavItem } from '@nexzi/ui';
 
 const NAV: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { label: 'Payroll runs', href: '/payroll', icon: CalendarCheck2, permission: 'payroll.view', section: 'Payroll' },
+  { label: 'Payroll alerts', href: '/alerts', icon: ShieldAlert, permission: 'payroll.view_amounts', section: 'Payroll' },
+  { label: 'Reconciliation', href: '/reconciliation', icon: ArrowLeftRight, permission: 'reports.view', section: 'Payroll' },
   { label: 'Reports', href: '/reports', icon: BarChart3, permission: 'reports.view', section: 'Payroll' },
   { label: 'Employees', href: '/employees', icon: UsersRound, permission: 'employees.view', section: 'People' },
   { label: 'Import employees', href: '/employees/import', icon: Upload, permission: 'employees.manage', section: 'People' },
   { label: 'Salary components', href: '/salary-components', icon: Wallet, permission: ['salary.view', 'settings.manage'], section: 'Configuration' },
   { label: 'Payroll settings', href: '/settings', icon: Settings2, permission: 'settings.manage', section: 'Configuration' },
   { label: 'Departments', href: '/settings/masters', icon: Building2, permission: ['settings.manage', 'employees.manage'], section: 'Configuration' },
+  { label: 'Knowledge centre', href: '/knowledge', icon: BookOpen, section: 'Handover' },
   { label: 'Users', href: '/admin/users', icon: Users, permission: 'users.manage', section: 'Administration' },
   { label: 'Roles & permissions', href: '/admin/roles', icon: ShieldCheck, permission: 'users.manage', section: 'Administration' },
   { label: 'Audit log', href: '/admin/audit', icon: ScrollText, permission: 'audit.view', section: 'Administration' },
