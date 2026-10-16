@@ -38,25 +38,6 @@ node apps/payroll-web/.next/standalone/apps/payroll-web/server.js   # PORT=3001
 Copy `apps/payroll-web/.next/static` to `.next/standalone/apps/payroll-web/.next/static` (the
 Dockerfile does this).
 
-## Option C — Render (Blueprint)
-
-`render.yaml` defines the database, `payroll-api` (Docker, Chromium included, persistent disk at
-`/var/lib/nexzi/storage`) and `payroll-web`. Create it from Dashboard → Blueprints, then fill the
-secret values (`SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`, optional `BOOTSTRAP_ADMIN_*`).
-
-- `API_INTERNAL_URL` comes from the API's `hostport` (`payroll-api:10000`); `next.config.ts` adds
-  `http://`. It is baked in at build time, so redeploy the web service after changing it. A free
-  API instance cannot receive private-network traffic: then set `API_INTERNAL_URL` to its public
-  `https://….onrender.com` URL.
-- `ALLOWED_ORIGINS` must be the exact public web URL (`https://payroll-web.onrender.com`).
-- `TRUST_PROXY=2`: Render's proxy plus the web app's `/api` proxy, so rate limits see the real client.
-- Roles are created at API start-up, so sign-up works on a fresh database. Set
-  `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` (/ `BOOTSTRAP_ADMIN_NAME`) to create the
-  first Administrator at start-up; remove the password afterwards.
-- Email: `SMTP_HOST=smtp.gmail.com` (not an address), port 587, `SMTP_SECURE=false`, a Google App
-  Password. Free instances block SMTP — use a paid instance or `MAIL_PROVIDER=brevo` (see
-  [signup-and-email.md](signup-and-email.md)).
-
 ## Production environment (API)
 
 `NODE_ENV=production`, `DATABASE_URL`, `ALLOWED_ORIGINS` (public HTTPS origin), `COOKIE_SECURE=true`,

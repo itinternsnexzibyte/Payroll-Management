@@ -40,7 +40,7 @@ clear error instead of silently dropping or logging codes.
 refuses an address there and logs why. At start-up the API checks the SMTP login and logs
 `SMTP connection verified` or the reason it failed; every failed send is logged too.
 
-**Hosts that block SMTP** (Render free instances block ports 25/465/587): use an HTTPS email API.
+**Hosts that block SMTP** (some cloud hosts block ports 25/465/587): use an HTTPS email API.
 Brevo: `MAIL_PROVIDER=brevo`, `MAIL_API_KEY=<key>`, and `MAIL_FROM` set to a sender verified in
 Brevo. Resend: `MAIL_PROVIDER=resend`, `MAIL_API_KEY=<key>`, `MAIL_FROM` on a domain verified in Resend.
 

@@ -29,7 +29,7 @@ export interface MailLogger {
 export const mailEnvShape = {
   /**
    * Delivery method. "smtp" (default when SMTP_HOST is set), or an HTTPS email API — "brevo" or
-   * "resend" — for hosts that block outgoing SMTP ports (e.g. Render free instances).
+   * "resend" — for hosts that block outgoing SMTP ports (some cloud hosts do).
    */
   MAIL_PROVIDER: z.enum(['smtp', 'brevo', 'resend']).optional(),
   /** API key for MAIL_PROVIDER=brevo or resend. */
