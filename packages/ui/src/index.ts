@@ -7,3 +7,4 @@ export * from './shell/auth';
 export * from './shell/app-shell';
 export * from './shell/screens';
 export * from './shell/admin';
+export * from './shell/signup';

@@ -34,7 +34,7 @@ export function registerUserRoutes(r: ApiRegistry) {
     tag: 'Users & Roles',
     summary: 'List users',
     permission: 'users.manage',
-    query: listQuery(['name', 'email', 'createdAt', 'lastLoginAt'], 'name', { status: z.enum(['ACTIVE', 'DISABLED']).optional(), roleId: z.string().uuid().optional() }),
+    query: listQuery(['name', 'email', 'createdAt', 'lastLoginAt'], 'name', { status: z.enum(['ACTIVE', 'DISABLED', 'PENDING']).optional(), roleId: z.string().uuid().optional() }),
     handler: async ({ query }) => {
       const where: Prisma.UserWhereInput = {
         ...(query.status ? { status: query.status } : {}),

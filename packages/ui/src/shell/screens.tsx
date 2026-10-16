@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError, post } from '../lib/api';
 import { Alert, Button, Field, Input } from '../components/primitives';
+import { useSignupConfig } from './signup';
 import { useToast } from '../components/feedback';
 import { useAuth } from './auth';
 
@@ -19,6 +20,7 @@ export function LoginScreen({ appName, tagline, company, logo, features }: { app
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const expired = params.get('expired') === '1';
+  const signupCfg = useSignupConfig();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -84,6 +86,14 @@ export function LoginScreen({ appName, tagline, company, logo, features }: { app
             Sign in
           </Button>
           <p className="text-center text-xs text-muted">Forgotten your password? Ask an administrator to reset it.</p>
+          {signupCfg.data?.enabled && (
+            <p className="border-t border-line pt-4 text-center text-sm text-muted">
+              New here?{' '}
+              <Link href="/signup" className="font-medium text-wine hover:underline">
+                Create an account
+              </Link>
+            </p>
+          )}
         </form>
       </div>
     </div>

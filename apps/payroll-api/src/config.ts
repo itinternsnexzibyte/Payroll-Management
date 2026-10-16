@@ -1,10 +1,12 @@
 import { z } from 'zod';
-import { commonEnvShape, envBool, loadDotEnv, parseEnv } from '@nexzi/server-core';
+import { commonEnvShape, envBool, loadDotEnv, mailEnvShape, parseEnv, signupEnvShape } from '@nexzi/server-core';
 
 loadDotEnv();
 
 export const config = parseEnv({
   ...commonEnvShape,
+  ...mailEnvShape,
+  ...signupEnvShape,
   PORT: z.coerce.number().int().positive().default(4001),
   PAYROLL_RULES_APPROVED: envBool,
   VIEWER_ROLE_ENABLED: envBool,

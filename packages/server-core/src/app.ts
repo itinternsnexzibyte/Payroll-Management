@@ -91,6 +91,16 @@ export function createBaseApp(opts: BaseAppOptions): Express {
   });
   app.use('/auth/login', loginLimiter);
   app.use(
+    '/auth/signup',
+    rateLimit({
+      windowMs: 15 * 60_000,
+      limit: opts.loginRateLimit?.max ?? 30,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      handler: (_req, _res, next) => next(new AppError('RATE_LIMITED', 'Too many sign-up attempts. Please wait and try again.')),
+    }),
+  );
+  app.use(
     rateLimit({
       windowMs: 60_000,
       limit: Number(process.env.API_RATE_LIMIT_PER_MINUTE ?? 600),

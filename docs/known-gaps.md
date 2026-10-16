@@ -18,6 +18,8 @@
 | Docker images not built or run | Docker was not available in the development environment; build and smoke-test on the target host |
 | No production deployment | Hosting not yet chosen |
 | Dependency advisories | `npm audit --omit=dev` reports transitive findings in Prisma CLI tooling (`deepmerge-ts`), puppeteer-core's browser-download helpers (`extract-zip`, `basic-ftp`; the app never downloads browsers), Next's bundled `postcss`/`sharp` (image optimisation not used) and `exceljs` → `uuid` (moderate). Next.js is on 15.5.27, which fixes all Next advisories reported at the time. Upgrade when patched releases are at least two weeks old |
-| Notifications | In-app pending-action notifications only; no email |
+| Email | Sign-up codes use SMTP; a real mail server must be configured before production. No other emails and no password reset by email (administrators reset passwords) |
+| Sign-up approval UI | SIGNUP_REQUIRE_APPROVAL=true creates PENDING accounts but there is no approve/reject screen yet |
+| Notifications | In-app pending-action notifications only |
 | Accessibility | Labels, focus management, keyboard grid navigation and a contrast-checked palette; no formal WCAG audit |
 | Load testing | Not performed (scale is about 150 employees and a few users) |

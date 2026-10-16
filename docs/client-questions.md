@@ -20,4 +20,6 @@ the item is answered.
 | P13 | Which salary version applies when salary changes mid-month? Any proration? | Pending | Currently "version in effect on the month's last day"; no proration implemented |
 | P14 | Threshold for "unusual change" warnings | Pending | Payroll settings |
 | P15 | Hosting environment and backup ownership | Open | Deployment and backup runbooks |
+| P17 | Should anyone be able to self-register? Restrict to which email domains? Which role for new accounts? Is administrator approval wanted? | New | SIGNUP_ALLOWED_DOMAINS, SIGNUP_REQUIRE_APPROVAL, default role |
+| P18 | SMTP server/account and sender address for system emails | New | SMTP_*, MAIL_FROM |
 | P16 | Acceptance criteria, single point of contact, UAT users | Pending | UAT plan |

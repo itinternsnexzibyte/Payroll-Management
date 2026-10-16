@@ -44,7 +44,7 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-const PUBLIC_PATHS = ['/login'];
+const PUBLIC_PATHS = ['/login', '/signup'];
 
 /** Loads the signed-in user and enforces sign-in / forced password change on every protected page. */
 export function AuthProvider({ children }: { children: ReactNode }) {

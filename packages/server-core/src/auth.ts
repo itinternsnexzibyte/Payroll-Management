@@ -30,7 +30,7 @@ export interface AuthUserRecord {
   email: string;
   name: string;
   passwordHash: string;
-  status: 'ACTIVE' | 'DISABLED';
+  status: 'ACTIVE' | 'DISABLED' | 'PENDING';
   failedLoginCount: number;
   lockedUntil: Date | null;
   mustChangePassword: boolean;
@@ -136,6 +136,10 @@ export class AuthService {
       await this.store.setLoginFailure(user.id, lock ? 0 : failed, lock);
       await this.audit.write({ actorId: user.id, action: lock ? 'auth.account_locked' : 'auth.login_failed', entity: 'user', entityId: user.id, ip, metadata: { failedAttempts: failed } });
       throw new AppError('INVALID_CREDENTIALS', 'The email or password is incorrect.');
+    }
+    if (user.status === 'PENDING') {
+      await this.audit.write({ actorId: user.id, action: 'auth.login_blocked', entity: 'user', entityId: user.id, ip, metadata: { reason: 'pending_approval' } });
+      throw new AppError('ACCOUNT_PENDING', 'Your account is awaiting approval by an administrator. You can sign in once it has been approved.');
     }
     if (user.status !== 'ACTIVE' || !user.roleEnabled) {
       await this.audit.write({ actorId: user.id, action: 'auth.login_blocked', entity: 'user', entityId: user.id, ip, metadata: { reason: user.status !== 'ACTIVE' ? 'disabled' : 'role_disabled' } });

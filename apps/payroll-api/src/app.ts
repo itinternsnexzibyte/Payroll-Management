@@ -1,4 +1,6 @@
-import { AuthService, createBaseApp, createLogger } from '@nexzi/server-core';
+import { AuthService, SignupService, createBaseApp, createLogger, registerSignupRoutes } from '@nexzi/server-core';
+import { mailer } from './mail';
+import { signupStore } from './signup-store';
 import { authStore } from './auth-store';
 import { audit } from './audit';
 import { config, COOKIE_NAME } from './config';
@@ -25,6 +27,8 @@ export function createApp() {
     },
     audit,
   );
+  const signupConfig = { appName: 'Payroll Management', enabled: config.SIGNUP_ENABLED, requireApproval: config.SIGNUP_REQUIRE_APPROVAL, allowedDomains: config.SIGNUP_ALLOWED_DOMAINS };
+  const signup = new SignupService(signupStore, mailer, audit, signupConfig);
   return createBaseApp({
     name: 'Payroll Management',
     version: '0.1.0',
@@ -40,6 +44,7 @@ export function createApp() {
     },
     loginRateLimit: config.NODE_ENV === 'test' ? { windowMs: 60_000, max: 1000 } : undefined,
     register: (r) => {
+      registerSignupRoutes(r, signup, signupConfig, mailer);
       registerUserRoutes(r);
       registerMasterRoutes(r);
       registerEmployeeRoutes(r);

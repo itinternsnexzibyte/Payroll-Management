@@ -10,3 +10,7 @@ process.env.NODE_ENV = 'test';
 process.env.STORAGE_DIR = resolve(__dirname, '../.test-storage');
 process.env.PAYROLL_RULES_APPROVED = 'false';
 process.env.VIEWER_ROLE_ENABLED = 'false';
+process.env.SIGNUP_ENABLED = 'true';
+process.env.SIGNUP_REQUIRE_APPROVAL = 'false';
+process.env.SIGNUP_ALLOWED_DOMAINS = '';
+process.env.SMTP_HOST = '';

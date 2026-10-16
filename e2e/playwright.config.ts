@@ -22,6 +22,9 @@ const apiEnv = (port: number, web: string, db: string) => ({
   ALLOWED_ORIGINS: `${web},http://localhost:${port}`,
   STORAGE_DIR: resolve(root, '.data/e2e-storage'),
   LOG_LEVEL: 'warn',
+  SIGNUP_ENABLED: 'true',
+  SIGNUP_REQUIRE_APPROVAL: 'false',
+  SMTP_HOST: '',
 });
 
 export default defineConfig({

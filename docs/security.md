@@ -3,6 +3,7 @@
 | Control | Implementation |
 |---|---|
 | Passwords | bcrypt (cost 12). Policy: at least 10 characters with upper case, lower case and a digit. Temporary passwords must be changed at first sign-in |
+| Sign-up | Email verification code (hashed, 10 min, 5 attempts, throttled) then a single-use token; no account enumeration; optional domain allow-list and approval; see [signup-and-email.md](signup-and-email.md) |
 | Sign-in protection | The same error for an unknown user and a wrong password. The account locks after 5 failures for 15 minutes (configurable). Login is rate-limited per IP, and there is a global API rate limit |
 | Sessions | A 256-bit random token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` with the `__Host-` prefix in production); only its SHA-256 is stored. Idle expiry 30 min, absolute expiry 8 h. Revoked on logout, account disable, role change and password change/reset |
 | Authorisation | Every route declares its permission(s), checked on the server for each request. Hiding UI elements is only a convenience |
