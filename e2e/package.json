@@ -1,0 +1,12 @@
+{
+  "name": "@nexzi/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser → API → PostgreSQL end-to-end tests for both applications",
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.1"
+  }
+}

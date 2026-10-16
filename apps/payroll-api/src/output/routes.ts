@@ -1,0 +1,428 @@
+import { z } from 'zod';
+import {
+  AppError,
+  FileStorage,
+  XLSX_MIME,
+  attachment,
+  buildXlsx,
+  dec,
+  Dec,
+  idParam,
+  money,
+  notFound,
+  renderPdf,
+  type ApiRegistry,
+  type AuthUser,
+  type SheetColumn,
+} from '@nexzi/server-core';
+import type { Response } from 'express';
+import { prisma, Prisma } from '../db';
+import { audit } from '../audit';
+import { config } from '../config';
+import { periodLabel } from '../payroll/service';
+import { renderPayslipHtml, renderReportHtml, type PayslipData, type ReportColumn, type ReportData } from './templates';
+
+export const storage = new FileStorage(config.STORAGE_DIR);
+
+function banners(rulesApproved: boolean): string[] {
+  const b: string[] = [];
+  if (!rulesApproved) b.push('PROVISIONAL — payroll calculation rules have not yet been reconciled with the client-approved workbook. Amounts are not authoritative.');
+  if (!config.PAYSLIP_FORMAT_APPROVED) b.push('Internal provisional layout — the client-approved payslip format has not been supplied yet.');
+  return b;
+}
+
+const fmtNow = () => new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+
+async function payslipData(runId: string, employeeIds?: string[]): Promise<PayslipData> {
+  const run = await prisma.payrollRun.findUnique({ where: { id: runId } });
+  if (!run) throw notFound('Payroll run');
+  if (run.status === 'DRAFT') throw new AppError('INVALID_STATE', 'Calculate the payroll before generating payslips.');
+  const members = await prisma.payrollRunEmployee.findMany({
+    where: { payrollRunId: runId, ...(employeeIds ? { employeeId: { in: employeeIds } } : {}) },
+    orderBy: { employeeCode: 'asc' },
+  });
+  if (!members.length) throw notFound('Employee in this payroll run');
+  const errored = members.filter((m) => m.resultStatus === 'ERROR' || m.resultStatus === 'PENDING');
+  if (errored.length && run.status === 'FINALISED') throw new AppError('INVALID_STATE', 'Some results are incomplete.');
+  const lines = await prisma.payrollLine.findMany({ where: { payrollRunId: runId, showOnPayslip: true, employeeId: { in: members.map((m) => m.employeeId) } }, orderBy: [{ sortOrder: 'asc' }, { componentCode: 'asc' }] });
+  return {
+    companyName: config.PAYSLIP_COMPANY_NAME,
+    period: periodLabel(run.year, run.month),
+    runStatus: run.status.replace('_', ' '),
+    generatedAt: fmtNow(),
+    watermark: run.status === 'FINALISED' ? (run.rulesApproved ? null : 'PROVISIONAL') : 'DRAFT — NOT FINAL',
+    banners: banners(run.rulesApproved),
+    slips: members
+      .filter((m) => m.resultStatus !== 'ERROR' && m.resultStatus !== 'PENDING')
+      .map((m) => {
+        const mine = lines.filter((l) => l.employeeId === m.employeeId);
+        return {
+          employeeCode: m.employeeCode,
+          employeeName: m.employeeName,
+          department: m.departmentName,
+          designation: m.designationName,
+          earnings: mine.filter((l) => l.componentType === 'EARNING').map((l) => ({ name: l.componentName, amount: l.amount.toString() })),
+          deductions: mine.filter((l) => l.componentType === 'DEDUCTION').map((l) => ({ name: l.componentName, amount: l.amount.toString() })),
+          gross: m.gross?.toString() ?? '0',
+          totalDeductions: m.deductions?.toString() ?? '0',
+          net: m.net?.toString() ?? '0',
+        };
+      }),
+  };
+}
+
+function sendPdf(res: Response, pdf: Buffer, filename: string, inline: boolean) {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', inline ? `inline; filename="${filename.replace(/[^\w.\-]+/g, '_')}"` : attachment(filename));
+  res.send(pdf);
+}
+
+const canSeeAmounts = (u: AuthUser) => u.permissions.has('payroll.view_amounts');
+
+export function registerOutputRoutes(r: ApiRegistry) {
+  // ------------------------------------------------------------------ Payslips
+  r.add({
+    method: 'get',
+    path: '/payroll-runs/:id/payslips',
+    tag: 'Payslips',
+    summary: 'Payslip status per employee for a run',
+    permission: 'payslips.generate',
+    params: idParam,
+    handler: async ({ params }) => {
+      const run = await prisma.payrollRun.findUnique({ where: { id: params.id } });
+      if (!run) throw notFound('Payroll run');
+      const [members, slips] = await Promise.all([
+        prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, orderBy: { employeeCode: 'asc' } }),
+        prisma.payslip.findMany({ where: { payrollRunId: run.id, supersededAt: null } }),
+      ]);
+      return {
+        runStatus: run.status,
+        isFinal: run.status === 'FINALISED',
+        items: members.map((m) => {
+          const slip = slips.find((s) => s.employeeId === m.employeeId);
+          return { employeeId: m.employeeId, employeeCode: m.employeeCode, employeeName: m.employeeName, resultStatus: m.resultStatus, payslipId: slip?.id ?? null, generatedAt: slip?.generatedAt ?? null };
+        }),
+      };
+    },
+  });
+
+  r.add({
+    method: 'get',
+    path: '/payroll-runs/:id/employees/:employeeId/payslip',
+    tag: 'Payslips',
+    summary: 'Payslip PDF for one employee. Finalised runs: generated once, stored and re-served. Otherwise: watermarked preview.',
+    permission: 'payslips.generate',
+    produces: 'pdf',
+    params: z.object({ id: z.string().uuid(), employeeId: z.string().uuid() }),
+    query: z.object({ disposition: z.enum(['inline', 'attachment']).default('attachment') }),
+    handler: async ({ params, query, res, user, ip }) => {
+      const run = await prisma.payrollRun.findUnique({ where: { id: params.id } });
+      if (!run) throw notFound('Payroll run');
+      const member = await prisma.payrollRunEmployee.findUnique({ where: { payrollRunId_employeeId: { payrollRunId: run.id, employeeId: params.employeeId } } });
+      if (!member) throw notFound('Employee in this payroll run');
+      if (member.resultStatus === 'ERROR' || member.resultStatus === 'PENDING') throw new AppError('INVALID_STATE', 'This employee has no valid calculated result.');
+      const filename = `payslip-${member.employeeCode}-${run.year}-${String(run.month).padStart(2, '0')}.pdf`;
+      if (run.status === 'FINALISED') {
+        const existing = await prisma.payslip.findFirst({ where: { payrollRunId: run.id, employeeId: params.employeeId, supersededAt: null }, orderBy: { generatedAt: 'desc' } });
+        let pdf = existing ? await storage.read(existing.fileKey) : null;
+        if (!pdf) {
+          pdf = await renderPdf(renderPayslipHtml(await payslipData(run.id, [params.employeeId])), { footerText: `Payslip ${periodLabel(run.year, run.month)} · ${member.employeeCode}` });
+          const saved = await storage.save(pdf, 'pdf', 'payslips');
+          await prisma.payslip.create({ data: { payrollRunId: run.id, employeeId: params.employeeId, fileKey: saved.key, sha256: saved.sha256, sizeBytes: saved.size, generatedById: user.id } });
+          await audit.write({ actorId: user.id, action: 'payslip.generated', entity: 'payroll_run', entityId: run.id, metadata: { employeeCode: member.employeeCode }, ip });
+        }
+        await audit.write({ actorId: user.id, action: 'payslip.downloaded', entity: 'payroll_run', entityId: run.id, metadata: { employeeCode: member.employeeCode }, ip });
+        return sendPdf(res, pdf, filename, query.disposition === 'inline');
+      }
+      const pdf = await renderPdf(renderPayslipHtml(await payslipData(run.id, [params.employeeId])), { footerText: 'PREVIEW — payroll not finalised' });
+      return sendPdf(res, pdf, filename.replace('.pdf', '-preview.pdf'), query.disposition === 'inline');
+    },
+  });
+
+  r.add({
+    method: 'post',
+    path: '/payroll-runs/:id/payslips/generate',
+    tag: 'Payslips',
+    summary: 'Generate and store payslips for all employees of a finalised run',
+    permission: 'payslips.generate',
+    params: idParam,
+    handler: async ({ params, user, ip }) => {
+      const run = await prisma.payrollRun.findUnique({ where: { id: params.id } });
+      if (!run) throw notFound('Payroll run');
+      if (run.status !== 'FINALISED') throw new AppError('INVALID_STATE', 'Payslips can be generated only after the payroll is finalised. Use preview for draft results.');
+      const members = await prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, orderBy: { employeeCode: 'asc' } });
+      const existing = new Set((await prisma.payslip.findMany({ where: { payrollRunId: run.id, supersededAt: null } })).map((p) => p.employeeId));
+      let generated = 0;
+      for (const m of members) {
+        if (existing.has(m.employeeId)) continue;
+        const pdf = await renderPdf(renderPayslipHtml(await payslipData(run.id, [m.employeeId])), { footerText: `Payslip ${periodLabel(run.year, run.month)} · ${m.employeeCode}` });
+        const saved = await storage.save(pdf, 'pdf', 'payslips');
+        await prisma.payslip.create({ data: { payrollRunId: run.id, employeeId: m.employeeId, fileKey: saved.key, sha256: saved.sha256, sizeBytes: saved.size, generatedById: user.id } });
+        generated++;
+      }
+      await audit.write({ actorId: user.id, action: 'payslip.bulk_generated', entity: 'payroll_run', entityId: run.id, metadata: { generated, alreadyPresent: existing.size }, ip });
+      return { generated, alreadyPresent: existing.size, total: members.length };
+    },
+  });
+
+  r.add({
+    method: 'get',
+    path: '/payroll-runs/:id/payslips/bulk',
+    tag: 'Payslips',
+    summary: 'All payslips of a run in one print-ready PDF (one employee per page)',
+    permission: 'payslips.generate',
+    produces: 'pdf',
+    params: idParam,
+    handler: async ({ params, res, user, ip }) => {
+      const run = await prisma.payrollRun.findUnique({ where: { id: params.id } });
+      if (!run) throw notFound('Payroll run');
+      const data = await payslipData(run.id);
+      if (!data.slips.length) throw new AppError('INVALID_STATE', 'There are no valid results to print.');
+      const pdf = await renderPdf(renderPayslipHtml(data), { footerText: `Payslips ${data.period}${run.status === 'FINALISED' ? '' : ' — PREVIEW'}` });
+      await audit.write({ actorId: user.id, action: 'payslip.bulk_downloaded', entity: 'payroll_run', entityId: run.id, metadata: { count: data.slips.length }, ip });
+      sendPdf(res, pdf, `payslips-${run.year}-${String(run.month).padStart(2, '0')}.pdf`, false);
+    },
+  });
+
+  // ------------------------------------------------------------------ Reports
+  const formatQ = z.enum(['json', 'pdf', 'xlsx']).default('json');
+
+  async function sendReport(res: Response, format: 'json' | 'pdf' | 'xlsx', report: ReportData, filename: string) {
+    if (format === 'json') return report;
+    if (format === 'pdf') {
+      const pdf = await renderPdf(renderReportHtml(report), { landscape: report.columns.length > 7, footerText: report.title });
+      sendPdf(res, pdf, `${filename}.pdf`, false);
+      return;
+    }
+    const cols: SheetColumn[] = report.columns.map((c) => ({ header: c.header, key: c.key, width: c.numeric ? 14 : 22, numFmt: c.numeric ? '#,##0.00' : undefined }));
+    const toCell = (row: Record<string, string | number | null>) =>
+      Object.fromEntries(report.columns.map((c) => [c.key, c.numeric && row[c.key] !== null && row[c.key] !== '' ? Number(row[c.key]) : row[c.key]]));
+    const rows = report.rows.map(toCell);
+    if (report.totals) rows.push(toCell(report.totals));
+    const buf = await buildXlsx([{ name: report.title.slice(0, 31), title: [report.title, report.subtitle, ...report.banners], columns: cols, rows }]);
+    res.setHeader('Content-Type', XLSX_MIME);
+    res.setHeader('Content-Disposition', attachment(`${filename}.xlsx`));
+    res.send(buf);
+  }
+
+  async function loadRun(runId: string) {
+    const run = await prisma.payrollRun.findUnique({ where: { id: runId } });
+    if (!run) throw notFound('Payroll run');
+    if (run.status === 'DRAFT') throw new AppError('INVALID_STATE', 'This payroll has not been calculated yet.');
+    return run;
+  }
+
+  const runStatusNote = (run: { status: string; rulesApproved: boolean }) => [
+    ...(run.status !== 'FINALISED' ? [`Payroll status: ${run.status.replace('_', ' ')} — figures are not final.`] : []),
+    ...(!run.rulesApproved ? ['PROVISIONAL — calculation rules not yet reconciled with the client-approved workbook.'] : []),
+  ];
+
+  r.add({
+    method: 'get',
+    path: '/reports/monthly-summary',
+    tag: 'Reports',
+    summary: 'Monthly payroll summary: employee-wise gross, deductions and net with totals',
+    permission: ['reports.view'],
+    produces: 'xlsx',
+    query: z.object({ runId: z.string().uuid(), format: formatQ }),
+    handler: async ({ query, res, user, ip }) => {
+      if (!canSeeAmounts(user)) throw new AppError('FORBIDDEN', 'You do not have permission to view payroll amounts.');
+      const run = await loadRun(query.runId);
+      const members = await prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, orderBy: { employeeCode: 'asc' } });
+      const columns: ReportColumn[] = [
+        { header: 'Employee ID', key: 'code' },
+        { header: 'Employee Name', key: 'name' },
+        { header: 'Department', key: 'department' },
+        { header: 'Gross', key: 'gross', numeric: true },
+        { header: 'Deductions', key: 'deductions', numeric: true },
+        { header: 'Net Pay', key: 'net', numeric: true },
+      ];
+      const rows = members.map((m) => ({ code: m.employeeCode, name: m.employeeName, department: m.departmentName ?? '', gross: m.gross?.toString() ?? '', deductions: m.deductions?.toString() ?? '', net: m.net?.toString() ?? '' }));
+      const report: ReportData = {
+        title: `Monthly Payroll Summary — ${periodLabel(run.year, run.month)}`,
+        subtitle: `${members.length} employees · generated ${fmtNow()}`,
+        banners: runStatusNote(run),
+        columns,
+        rows,
+        totals: { code: 'Total', name: '', department: '', gross: run.totalEarnings?.toString() ?? '', deductions: run.totalDeductions?.toString() ?? '', net: run.totalNet?.toString() ?? '' },
+      };
+      if (query.format !== 'json') await audit.write({ actorId: user.id, action: 'report.exported', entity: 'payroll_run', entityId: run.id, metadata: { report: 'monthly-summary', format: query.format }, ip });
+      return sendReport(res, query.format, report, `payroll-summary-${run.year}-${String(run.month).padStart(2, '0')}`);
+    },
+  });
+
+  r.add({
+    method: 'get',
+    path: '/reports/components',
+    tag: 'Reports',
+    summary: 'Earnings report / deductions report: component-wise totals and per-employee breakdown',
+    permission: ['reports.view'],
+    produces: 'xlsx',
+    query: z.object({ runId: z.string().uuid(), type: z.enum(['EARNING', 'DEDUCTION']), format: formatQ }),
+    handler: async ({ query, res, user, ip }) => {
+      if (!canSeeAmounts(user)) throw new AppError('FORBIDDEN', 'You do not have permission to view payroll amounts.');
+      const run = await loadRun(query.runId);
+      const [members, lines] = await Promise.all([
+        prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, orderBy: { employeeCode: 'asc' } }),
+        prisma.payrollLine.findMany({ where: { payrollRunId: run.id, componentType: query.type }, orderBy: [{ sortOrder: 'asc' }, { componentCode: 'asc' }] }),
+      ]);
+      const comps = [...new Map(lines.map((l) => [l.componentCode, l.componentName])).entries()];
+      const columns: ReportColumn[] = [{ header: 'Employee ID', key: 'code' }, { header: 'Employee Name', key: 'name' }, ...comps.map(([code, name]) => ({ header: name, key: `c_${code}`, numeric: true })), { header: 'Total', key: 'total', numeric: true }];
+      const totals: Record<string, Dec> = {};
+      const rows = members.map((m) => {
+        const mine = lines.filter((l) => l.employeeId === m.employeeId);
+        const row: Record<string, string> = { code: m.employeeCode, name: m.employeeName };
+        let total = new Dec(0);
+        for (const [code] of comps) {
+          const l = mine.find((x) => x.componentCode === code);
+          row[`c_${code}`] = l ? l.amount.toString() : '';
+          if (l) {
+            total = total.add(dec(l.amount));
+            totals[code] = (totals[code] ?? new Dec(0)).add(dec(l.amount));
+          }
+        }
+        row.total = money(total);
+        return row;
+      });
+      const grand = Object.values(totals).reduce((a, b) => a.add(b), new Dec(0));
+      const report: ReportData = {
+        title: `${query.type === 'EARNING' ? 'Earnings' : 'Deductions'} Report — ${periodLabel(run.year, run.month)}`,
+        subtitle: `Component-wise totals · generated ${fmtNow()}`,
+        banners: runStatusNote(run),
+        columns,
+        rows,
+        totals: { code: 'Total', name: '', ...Object.fromEntries(comps.map(([code]) => [`c_${code}`, money(totals[code] ?? new Dec(0))])), total: money(grand) },
+      };
+      if (query.format !== 'json') await audit.write({ actorId: user.id, action: 'report.exported', entity: 'payroll_run', entityId: run.id, metadata: { report: query.type, format: query.format }, ip });
+      return sendReport(res, query.format, report, `${query.type === 'EARNING' ? 'earnings' : 'deductions'}-${run.year}-${String(run.month).padStart(2, '0')}`);
+    },
+  });
+
+  r.add({
+    method: 'get',
+    path: '/reports/net-payable',
+    tag: 'Reports',
+    summary: 'Net payable report for a run',
+    permission: ['reports.view'],
+    produces: 'xlsx',
+    query: z.object({ runId: z.string().uuid(), format: formatQ }),
+    handler: async ({ query, res, user, ip }) => {
+      if (!canSeeAmounts(user)) throw new AppError('FORBIDDEN', 'You do not have permission to view payroll amounts.');
+      const run = await loadRun(query.runId);
+      const members = await prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, orderBy: { employeeCode: 'asc' } });
+      const report: ReportData = {
+        title: `Net Payable — ${periodLabel(run.year, run.month)}`,
+        subtitle: `${members.length} employees · generated ${fmtNow()}`,
+        banners: runStatusNote(run),
+        columns: [
+          { header: 'Employee ID', key: 'code' },
+          { header: 'Employee Name', key: 'name' },
+          { header: 'Department', key: 'department' },
+          { header: 'Designation', key: 'designation' },
+          { header: 'Net Payable', key: 'net', numeric: true },
+        ],
+        rows: members.map((m) => ({ code: m.employeeCode, name: m.employeeName, department: m.departmentName ?? '', designation: m.designationName ?? '', net: m.net?.toString() ?? '' })),
+        totals: { code: 'Total', name: '', department: '', designation: '', net: run.totalNet?.toString() ?? '' },
+      };
+      if (query.format !== 'json') await audit.write({ actorId: user.id, action: 'report.exported', entity: 'payroll_run', entityId: run.id, metadata: { report: 'net-payable', format: query.format }, ip });
+      return sendReport(res, query.format, report, `net-payable-${run.year}-${String(run.month).padStart(2, '0')}`);
+    },
+  });
+
+  r.add({
+    method: 'get',
+    path: '/reports/employee-statement',
+    tag: 'Reports',
+    summary: 'Employee-wise salary statement (month by month)',
+    permission: ['reports.view'],
+    produces: 'xlsx',
+    query: z.object({ employeeId: z.string().uuid(), year: z.coerce.number().int().min(2000).max(2100).optional(), format: formatQ }),
+    handler: async ({ query, res, user, ip }) => {
+      if (!canSeeAmounts(user)) throw new AppError('FORBIDDEN', 'You do not have permission to view payroll amounts.');
+      const emp = await prisma.employee.findUnique({ where: { id: query.employeeId } });
+      if (!emp) throw notFound('Employee');
+      const rowsDb = await prisma.payrollRunEmployee.findMany({
+        where: { employeeId: emp.id, payrollRun: { status: { not: 'DRAFT' }, ...(query.year ? { year: query.year } : {}) } },
+        include: { payrollRun: true },
+        orderBy: [{ payrollRun: { year: 'asc' } }, { payrollRun: { month: 'asc' } }],
+      });
+      let g = new Dec(0), d = new Dec(0), n = new Dec(0);
+      const rows = rowsDb.map((m) => {
+        g = g.add(dec(m.gross)); d = d.add(dec(m.deductions)); n = n.add(dec(m.net));
+        return { period: periodLabel(m.payrollRun.year, m.payrollRun.month), status: m.payrollRun.status.replace('_', ' '), gross: m.gross?.toString() ?? '', deductions: m.deductions?.toString() ?? '', net: m.net?.toString() ?? '' };
+      });
+      const report: ReportData = {
+        title: `Salary Statement — ${emp.fullName} (${emp.employeeCode})`,
+        subtitle: `${query.year ? `Year ${query.year}` : 'All periods'} · generated ${fmtNow()}`,
+        banners: [...(rowsDb.some((m) => m.payrollRun.status !== 'FINALISED') ? ['Includes payroll months that are not finalised.'] : []), ...(rowsDb.some((m) => !m.payrollRun.rulesApproved) ? ['PROVISIONAL — calculation rules not yet reconciled with the client-approved workbook.'] : [])],
+        columns: [
+          { header: 'Month', key: 'period' },
+          { header: 'Payroll Status', key: 'status' },
+          { header: 'Gross', key: 'gross', numeric: true },
+          { header: 'Deductions', key: 'deductions', numeric: true },
+          { header: 'Net Pay', key: 'net', numeric: true },
+        ],
+        rows,
+        totals: { period: 'Total', status: '', gross: money(g), deductions: money(d), net: money(n) },
+      };
+      if (query.format !== 'json') await audit.write({ actorId: user.id, action: 'report.exported', entity: 'employee', entityId: emp.id, metadata: { report: 'employee-statement', format: query.format }, ip });
+      return sendReport(res, query.format, report, `salary-statement-${emp.employeeCode}`);
+    },
+  });
+
+  // ------------------------------------------------------------------ Dashboard & notifications
+  r.add({
+    method: 'get',
+    path: '/dashboard',
+    tag: 'Dashboard',
+    summary: 'Dashboard figures from live data (amounts only with permission)',
+    handler: async ({ user }) => {
+      const now = new Date();
+      const [activeEmployees, drafts, awaitingReview, awaitingApproval, recentFinalised, current, recentEvents, trend] = await Promise.all([
+        user.permissions.has('employees.view') ? prisma.employee.count({ where: { status: 'ACTIVE' } }) : Promise.resolve(null),
+        prisma.payrollRun.count({ where: { status: { in: ['DRAFT', 'CALCULATED'] } } }),
+        prisma.payrollRun.count({ where: { status: 'UNDER_REVIEW' } }),
+        prisma.payrollRun.count({ where: { status: 'APPROVED' } }),
+        prisma.payrollRun.findMany({ where: { status: 'FINALISED' }, orderBy: [{ year: 'desc' }, { month: 'desc' }], take: 5 }),
+        prisma.payrollRun.findUnique({ where: { year_month: { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 } } }),
+        user.permissions.has('payroll.view') ? prisma.payrollRunEvent.findMany({ orderBy: { occurredAt: 'desc' }, take: 8, include: { payrollRun: { select: { year: true, month: true } } } }) : Promise.resolve([]),
+        prisma.payrollRun.findMany({ where: { status: 'FINALISED' }, orderBy: [{ year: 'desc' }, { month: 'desc' }], take: 6 }),
+      ]);
+      const show = canSeeAmounts(user);
+      return {
+        activeEmployees,
+        currentPeriod: { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1, label: periodLabel(now.getUTCFullYear(), now.getUTCMonth() + 1), runId: current?.id ?? null, status: current?.status ?? null },
+        draftRuns: drafts,
+        awaitingReview,
+        awaitingApproval,
+        rulesApproved: config.PAYROLL_RULES_APPROVED,
+        recentFinalised: recentFinalised.map((r) => ({ id: r.id, period: periodLabel(r.year, r.month), finalisedAt: r.finalisedAt, employeeCount: r.employeeCount, totalNet: show ? r.totalNet?.toString() ?? null : null })),
+        netTrend: show ? trend.reverse().map((r) => ({ period: `${r.year}-${String(r.month).padStart(2, '0')}`, label: periodLabel(r.year, r.month).slice(0, 3) + ' ' + r.year, totalNet: r.totalNet?.toString() ?? '0', totalEarnings: r.totalEarnings?.toString() ?? '0', totalDeductions: r.totalDeductions?.toString() ?? '0' })) : null,
+        recentActivity: recentEvents.map((e) => ({ action: e.action, period: periodLabel(e.payrollRun.year, e.payrollRun.month), runId: e.payrollRunId, actorName: e.actorName, occurredAt: e.occurredAt, reason: e.reason })),
+      };
+    },
+  });
+
+  r.add({
+    method: 'get',
+    path: '/notifications',
+    tag: 'Dashboard',
+    summary: 'Pending payroll actions for the current user',
+    handler: async ({ user }) => {
+      const items: { id: string; message: string; href: string }[] = [];
+      const p = user.permissions;
+      if (p.has('payroll.approve')) {
+        for (const r of await prisma.payrollRun.findMany({ where: { status: 'UNDER_REVIEW' }, take: 10 })) items.push({ id: `review-${r.id}`, message: `${periodLabel(r.year, r.month)} payroll is awaiting approval`, href: `/payroll/${r.id}` });
+      }
+      if (p.has('payroll.finalise')) {
+        for (const r of await prisma.payrollRun.findMany({ where: { status: 'APPROVED' }, take: 10 })) items.push({ id: `final-${r.id}`, message: `${periodLabel(r.year, r.month)} payroll is approved and ready to finalise`, href: `/payroll/${r.id}` });
+      }
+      if (p.has('payroll.calculate')) {
+        for (const r of await prisma.payrollRun.findMany({ where: { status: 'DRAFT' }, take: 10 })) items.push({ id: `draft-${r.id}`, message: `${periodLabel(r.year, r.month)} payroll is in draft`, href: `/payroll/${r.id}` });
+      }
+      return { items };
+    },
+  });
+}
+
+export { Prisma };

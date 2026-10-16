@@ -1,0 +1,52 @@
+import { AuthService, createBaseApp, createLogger } from '@nexzi/server-core';
+import { authStore } from './auth-store';
+import { audit } from './audit';
+import { config, COOKIE_NAME } from './config';
+import { prisma } from './db';
+import { registerUserRoutes } from './modules/users';
+import { registerMasterRoutes } from './modules/masters';
+import { registerEmployeeRoutes } from './modules/employees';
+import { registerSalaryRoutes } from './modules/salary';
+import { registerPayrollRoutes } from './payroll/routes';
+import { registerOutputRoutes } from './output/routes';
+
+export const logger = createLogger('payroll-api', config.LOG_LEVEL);
+
+export function createApp() {
+  const auth = new AuthService(
+    authStore,
+    {
+      cookieName: COOKIE_NAME,
+      cookieSecure: config.COOKIE_SECURE,
+      idleTimeoutMinutes: config.SESSION_IDLE_MINUTES,
+      absoluteTimeoutHours: config.SESSION_ABSOLUTE_HOURS,
+      maxFailedAttempts: config.LOGIN_MAX_FAILED_ATTEMPTS,
+      lockoutMinutes: config.LOGIN_LOCKOUT_MINUTES,
+    },
+    audit,
+  );
+  return createBaseApp({
+    name: 'Payroll Management',
+    version: '0.1.0',
+    description:
+      'REST API for the NexziByte Payroll Management application. All endpoints except /auth/login, /health and /ready require the session cookie; permissions are enforced on every request.',
+    logger,
+    allowedOrigins: config.ALLOWED_ORIGINS,
+    auth,
+    cookieName: COOKIE_NAME,
+    publicApiPrefix: config.PUBLIC_API_PREFIX,
+    readiness: async () => {
+      await prisma.$queryRaw`SELECT 1`;
+    },
+    loginRateLimit: config.NODE_ENV === 'test' ? { windowMs: 60_000, max: 1000 } : undefined,
+    register: (r) => {
+      registerUserRoutes(r);
+      registerMasterRoutes(r);
+      registerEmployeeRoutes(r);
+      registerSalaryRoutes(r);
+      registerPayrollRoutes(r);
+      registerOutputRoutes(r);
+    },
+    meExtras: async () => ({ app: 'payroll', rulesApproved: config.PAYROLL_RULES_APPROVED }),
+  });
+}

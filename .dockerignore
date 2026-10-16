@@ -1,0 +1,11 @@
+**/node_modules
+**/.next
+**/.next-e2e
+**/dist
+**/generated
+**/.env
+**/storage
+**/.test-storage
+.data
+e2e
+.git

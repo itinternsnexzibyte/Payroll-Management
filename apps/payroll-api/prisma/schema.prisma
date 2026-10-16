@@ -1,0 +1,454 @@
+// Payroll Management — database schema (PostgreSQL, database "payroll").
+// Money is DECIMAL; never floating point. Finalised payroll rows are protected by DB triggers
+// (see migration 0002_integrity_triggers) in addition to application checks.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+  // native for local development, debian-openssl-3.0.x for the Docker image
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- Identity & access
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique
+  name        String
+  description String?
+  /// Disabled roles cannot sign in (e.g. VIEWER until the client confirms it).
+  enabled     Boolean          @default(true)
+  isSystem    Boolean          @default(true)
+  permissions RolePermission[]
+  users       User[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("roles")
+}
+
+model RolePermission {
+  roleId         String @db.Uuid
+  permissionCode String
+  role           Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionCode])
+  @@map("role_permissions")
+}
+
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  email              String     @unique
+  name               String
+  passwordHash       String
+  roleId             String     @db.Uuid
+  role               Role       @relation(fields: [roleId], references: [id])
+  status             UserStatus @default(ACTIVE)
+  failedLoginCount   Int        @default(0)
+  lockedUntil        DateTime?
+  mustChangePassword Boolean    @default(false)
+  lastLoginAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  createdById        String?    @db.Uuid
+  updatedById        String?    @db.Uuid
+  sessions           Session[]
+
+  @@index([roleId])
+  @@map("users")
+}
+
+model Session {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  ip         String?
+  userAgent  String?
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Append-only (UPDATE/DELETE blocked by trigger).
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  occurredAt DateTime @default(now())
+  actorId    String?  @db.Uuid
+  actorEmail String?
+  action     String
+  entity     String
+  entityId   String?
+  before     Json?
+  after      Json?
+  metadata   Json?
+  ip         String?
+
+  @@index([occurredAt])
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------- Masters & settings
+
+model Department {
+  id          String     @id @default(uuid()) @db.Uuid
+  name        String     @unique
+  active      Boolean    @default(true)
+  employees   Employee[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  createdById String?    @db.Uuid
+  updatedById String?    @db.Uuid
+
+  @@map("departments")
+}
+
+model Designation {
+  id          String     @id @default(uuid()) @db.Uuid
+  name        String     @unique
+  active      Boolean    @default(true)
+  employees   Employee[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  createdById String?    @db.Uuid
+  updatedById String?    @db.Uuid
+
+  @@map("designations")
+}
+
+/// Key/value business settings (rounding, approval policy, ...). Changes are audit-logged.
+model PayrollSetting {
+  key         String   @id
+  value       Json
+  updatedAt   DateTime @updatedAt
+  updatedById String?  @db.Uuid
+
+  @@map("payroll_settings")
+}
+
+// ---------------------------------------------------------------- Employees
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  EXITED
+}
+
+model Employee {
+  id             String               @id @default(uuid()) @db.Uuid
+  /// Business identifier (format to be confirmed with the client)
+  employeeCode   String               @unique
+  fullName       String
+  departmentId   String?              @db.Uuid
+  department     Department?          @relation(fields: [departmentId], references: [id])
+  designationId  String?              @db.Uuid
+  designation    Designation?         @relation(fields: [designationId], references: [id])
+  joiningDate    DateTime             @db.Date
+  exitDate       DateTime?            @db.Date
+  status         EmployeeStatus       @default(ACTIVE)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  createdById    String?              @db.Uuid
+  updatedById    String?              @db.Uuid
+  salaryVersions SalaryVersion[]
+  runEmployees   PayrollRunEmployee[]
+  inputs         PayrollInput[]
+  lines          PayrollLine[]
+  payslips       Payslip[]
+
+  @@index([fullName])
+  @@index([status])
+  @@index([departmentId])
+  @@map("employees")
+}
+
+// ---------------------------------------------------------------- Salary
+
+enum ComponentType {
+  EARNING
+  DEDUCTION
+}
+
+enum CalculationBasis {
+  /// Monthly amount configured per employee in the salary version
+  FIXED
+  /// Employee rate (%) applied to another component's calculated amount
+  PERCENTAGE
+  /// Amount entered each month in the payroll input grid
+  INPUT
+  /// Named, unit-tested formula from the client workbook (registry in code)
+  FORMULA
+}
+
+model SalaryComponent {
+  id                String           @id @default(uuid()) @db.Uuid
+  code              String           @unique
+  name              String
+  type              ComponentType
+  basis             CalculationBasis
+  /// For PERCENTAGE: the component code the rate applies to
+  percentOfCode     String?
+  /// For PERCENTAGE: default rate when the employee has no specific value
+  defaultPercentage Decimal?         @db.Decimal(9, 4)
+  /// For INPUT: the monthly input key supplying the amount
+  inputKey          String?
+  /// For FORMULA: registry key of the approved formula implementation
+  formulaRef        String?
+  sortOrder         Int              @default(0)
+  active            Boolean          @default(true)
+  showOnPayslip     Boolean          @default(true)
+  description       String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  createdById       String?          @db.Uuid
+  updatedById       String?          @db.Uuid
+  values            SalaryValue[]
+  lines             PayrollLine[]
+
+  @@map("salary_components")
+}
+
+/// One version of an employee's salary structure. New effective dates create a new version;
+/// earlier versions are closed (effectiveTo) but never overwritten.
+model SalaryVersion {
+  id            String          @id @default(uuid()) @db.Uuid
+  employeeId    String          @db.Uuid
+  employee      Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  versionNo     Int
+  effectiveFrom DateTime        @db.Date
+  effectiveTo   DateTime?       @db.Date
+  changeReason  String?
+  createdAt     DateTime        @default(now())
+  createdById   String?         @db.Uuid
+  values        SalaryValue[]
+  runEmployees  PayrollRunEmployee[]
+
+  @@unique([employeeId, versionNo])
+  @@unique([employeeId, effectiveFrom])
+  @@index([employeeId, effectiveFrom])
+  @@map("employee_salary_versions")
+}
+
+model SalaryValue {
+  id              String          @id @default(uuid()) @db.Uuid
+  salaryVersionId String          @db.Uuid
+  salaryVersion   SalaryVersion   @relation(fields: [salaryVersionId], references: [id], onDelete: Restrict)
+  componentId     String          @db.Uuid
+  component       SalaryComponent @relation(fields: [componentId], references: [id], onDelete: Restrict)
+  value           Decimal         @db.Decimal(18, 4)
+
+  @@unique([salaryVersionId, componentId])
+  @@map("employee_salary_values")
+}
+
+// ---------------------------------------------------------------- Monthly payroll
+
+enum InputDataType {
+  NUMBER
+  TEXT
+}
+
+/// Columns of the monthly input grid (the fields filled manually in the Excel today).
+model PayrollInputDefinition {
+  id          String        @id @default(uuid()) @db.Uuid
+  key         String        @unique
+  label       String
+  dataType    InputDataType @default(NUMBER)
+  mandatory   Boolean       @default(false)
+  minValue    Decimal?      @db.Decimal(18, 4)
+  maxValue    Decimal?      @db.Decimal(18, 4)
+  sortOrder   Int           @default(0)
+  active      Boolean       @default(true)
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdById String?       @db.Uuid
+  updatedById String?       @db.Uuid
+
+  @@map("payroll_input_definitions")
+}
+
+enum PayrollStatus {
+  DRAFT
+  CALCULATED
+  UNDER_REVIEW
+  APPROVED
+  FINALISED
+}
+
+model PayrollRun {
+  id              String               @id @default(uuid()) @db.Uuid
+  year            Int
+  month           Int
+  status          PayrollStatus        @default(DRAFT)
+  employeeCount   Int                  @default(0)
+  totalEarnings   Decimal?             @db.Decimal(18, 4)
+  totalDeductions Decimal?             @db.Decimal(18, 4)
+  totalNet        Decimal?             @db.Decimal(18, 4)
+  /// Whether calculation rules were marked client-approved when this run was calculated
+  rulesApproved   Boolean              @default(false)
+  /// Hash of calculation inputs + configuration, for determinism checks
+  calcHash        String?
+  calculatedAt    DateTime?
+  calculatedById  String?              @db.Uuid
+  submittedAt     DateTime?
+  submittedById   String?              @db.Uuid
+  approvedAt      DateTime?
+  approvedById    String?              @db.Uuid
+  finalisedAt     DateTime?
+  finalisedById   String?              @db.Uuid
+  reopenCount     Int                  @default(0)
+  notes           String?
+  /// Optimistic concurrency counter, incremented on every state change
+  version         Int                  @default(0)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  createdById     String?              @db.Uuid
+  employees       PayrollRunEmployee[]
+  inputs          PayrollInput[]
+  lines           PayrollLine[]
+  events          PayrollRunEvent[]
+  payslips        Payslip[]
+
+  /// One payroll run per month (business rule pending client confirmation)
+  @@unique([year, month])
+  @@index([status])
+  @@map("payroll_runs")
+}
+
+/// Employees included in a run, with a snapshot of identity fields and results.
+model PayrollRunEmployee {
+  id                  String         @id @default(uuid()) @db.Uuid
+  payrollRunId        String         @db.Uuid
+  payrollRun          PayrollRun     @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+  employeeId          String         @db.Uuid
+  employee            Employee       @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  salaryVersionId     String?        @db.Uuid
+  salaryVersion       SalaryVersion? @relation(fields: [salaryVersionId], references: [id], onDelete: Restrict)
+  employeeCode        String
+  employeeName        String
+  departmentName      String?
+  designationName     String?
+  gross               Decimal?       @db.Decimal(18, 4)
+  deductions          Decimal?       @db.Decimal(18, 4)
+  net                 Decimal?       @db.Decimal(18, 4)
+  /// OK | WARNING | ERROR (missing inputs / invalid results)
+  resultStatus        String         @default("PENDING")
+  exceptions          Json           @default("[]")
+
+  @@unique([payrollRunId, employeeId])
+  @@index([employeeId])
+  @@map("payroll_run_employees")
+}
+
+/// Key/value monthly inputs per employee (designed so attendance import can be added later).
+model PayrollInput {
+  id           String     @id @default(uuid()) @db.Uuid
+  payrollRunId String     @db.Uuid
+  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+  employeeId   String     @db.Uuid
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  inputKey     String
+  value        String
+  updatedAt    DateTime   @updatedAt
+  updatedById  String?    @db.Uuid
+
+  @@unique([payrollRunId, employeeId, inputKey])
+  @@map("payroll_inputs")
+}
+
+/// One calculated amount per component per employee. Snapshot fields keep finalised payroll
+/// independent of later master changes.
+model PayrollLine {
+  id            String           @id @default(uuid()) @db.Uuid
+  payrollRunId  String           @db.Uuid
+  payrollRun    PayrollRun       @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+  employeeId    String           @db.Uuid
+  employee      Employee         @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  componentId   String?          @db.Uuid
+  component     SalaryComponent? @relation(fields: [componentId], references: [id], onDelete: Restrict)
+  componentCode String
+  componentName String
+  componentType ComponentType
+  basis         CalculationBasis
+  sortOrder     Int
+  showOnPayslip Boolean          @default(true)
+  amount        Decimal          @db.Decimal(18, 4)
+  calcDetail    Json?
+
+  @@index([payrollRunId, employeeId])
+  @@index([employeeId])
+  @@map("payroll_lines")
+}
+
+model PayrollRunEvent {
+  id           String     @id @default(uuid()) @db.Uuid
+  payrollRunId String     @db.Uuid
+  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+  action       String
+  fromStatus   String?
+  toStatus     String
+  reason       String?
+  actorId      String?    @db.Uuid
+  actorName    String?
+  occurredAt   DateTime   @default(now())
+
+  @@index([payrollRunId, occurredAt])
+  @@map("payroll_run_events")
+}
+
+model Payslip {
+  id            String     @id @default(uuid()) @db.Uuid
+  payrollRunId  String     @db.Uuid
+  payrollRun    PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+  employeeId    String     @db.Uuid
+  employee      Employee   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  fileKey       String
+  sha256        String
+  sizeBytes     Int
+  /// Set when the run is re-opened; a new payslip is generated after re-finalisation
+  supersededAt  DateTime?
+  generatedAt   DateTime   @default(now())
+  generatedById String?    @db.Uuid
+
+  @@index([payrollRunId, employeeId])
+  @@map("payslips")
+}
+
+model ImportJob {
+  id          String    @id @default(uuid()) @db.Uuid
+  type        String
+  fileName    String
+  /// PREVIEWED | COMPLETED | PARTIAL | FAILED
+  status      String
+  totalRows   Int       @default(0)
+  successRows Int       @default(0)
+  errorRows   Int       @default(0)
+  headers     Json      @default("[]")
+  mapping     Json?
+  rows        Json      @default("[]")
+  errors      Json      @default("[]")
+  createdAt   DateTime  @default(now())
+  createdById String?   @db.Uuid
+  completedAt DateTime?
+
+  @@index([createdAt])
+  @@map("import_jobs")
+}

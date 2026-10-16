@@ -1,0 +1,42 @@
+{
+  "name": "payroll-management",
+  "private": true,
+  "version": "0.1.0",
+  "description": "NexziByte Payroll Management web application (API + web + shared packages)",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "e2e"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "db:start": "node infra/dev-db/start-embedded-postgres.mjs",
+    "prisma:generate": "npm run prisma:generate -w @nexzi/payroll-api",
+    "db:migrate": "npm run db:migrate -w @nexzi/payroll-api",
+    "db:seed": "npm run db:seed -w @nexzi/payroll-api",
+    "dev:api": "npm run dev -w @nexzi/payroll-api",
+    "dev:web": "npm run dev -w @nexzi/payroll-web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "test": "npm run test -w @nexzi/server-core && npm run test -w @nexzi/payroll-api",
+    "test:e2e": "npm run test:e2e -w @nexzi/e2e",
+    "build": "npm run build -w @nexzi/payroll-api && npm run build -w @nexzi/payroll-web"
+  },
+  "devDependencies": {
+    "embedded-postgres": "17.6.0-beta.15",
+    "esbuild": "^0.28.2",
+    "eslint": "9.36.0",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "8.44.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "@embedded-postgres/windows-x64@17.6.0-beta.15": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "prisma@6.19.3": true
+  }
+}

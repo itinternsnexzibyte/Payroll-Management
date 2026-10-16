@@ -1,0 +1,49 @@
+/*
+ * NexziByte design tokens — the five-colour brand palette plus neutral text and status colours.
+ * Tailwind v4 exposes each --color-* as utilities (bg-burgundy, text-wine, border-rose/40, ...).
+ */
+@theme {
+  --color-burgundy: #401018; /* sidebar, primary buttons, selected navigation, key actions */
+  --color-wine: #7a2b36; /* secondary actions, emphasis, interactive states */
+  --color-rose: #b77b86; /* icons, chart accents, subtle borders, highlights */
+  --color-blush: #f0d9dc; /* selected rows, subtle sections, badges, hover states */
+  --color-white: #ffffff; /* content surfaces, tables, forms, cards */
+
+  --color-ink: #24161a; /* body text (AAA on white) */
+  --color-muted: #6b5a5e; /* secondary text (AA on white) */
+  --color-line: #ead7da; /* hairline borders (rose-tinted) */
+  --color-canvas: #faf6f7; /* app background behind white cards */
+
+  --color-success: #2f6b3f;
+  --color-success-bg: #e7f3ea;
+  --color-warning: #8a5300;
+  --color-warning-bg: #fdf3e1;
+  --color-danger: #b42318;
+  --color-danger-bg: #fdecea;
+
+  --font-sans: 'Segoe UI', ui-sans-serif, system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --radius-card: 0.625rem;
+  --shadow-card: 0 1px 2px rgb(64 16 24 / 0.06), 0 1px 3px rgb(64 16 24 / 0.04);
+}
+
+@layer base {
+  html {
+    color: var(--color-ink);
+    background: var(--color-canvas);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-wine);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-blush);
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

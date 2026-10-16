@@ -1,0 +1,47 @@
+{
+  "name": "@nexzi/payroll-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Payroll Management REST API",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node --enable-source-maps dist/server.js",
+    "build": "prisma generate && node ../../infra/build/build-api.mjs src/server.ts scripts/bootstrap-admin.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prisma:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:seed": "tsx prisma/seed.ts",
+    "bootstrap:admin": "node dist/bootstrap-admin.js",
+    "test": "vitest run",
+    "test:unit": "vitest run test/unit"
+  },
+  "dependencies": {
+    "@prisma/client": "~6.19.3",
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "decimal.js": "^10.6.0",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "handlebars": "^4.7.8",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.2",
+    "papaparse": "^5.5.3",
+    "pino": "^9.11.0",
+    "pino-http": "^10.5.0",
+    "puppeteer-core": "^24.22.0",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.18.6",
+    "@types/supertest": "^6.0.3",
+    "prisma": "~6.19.3",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.6",
+    "vitest": "^3.2.4"
+  }
+}
