@@ -246,7 +246,7 @@ Secrets belong only in `.env` (git-ignored) or the host's secret store — never
 
 </details>
 
-**Production first administrator:** `npm run build`, set `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and `BOOTSTRAP_ADMIN_PASSWORD`, then run `npm run bootstrap:admin -w @nexzi/payroll-api` (the password must be changed at first sign-in). Deployment options (Vercel frontend with a separately hosted API, Docker Compose, or Node processes): [docs/deployment.md](docs/deployment.md).
+**Production first administrator:** `npm run build`, set `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and `BOOTSTRAP_ADMIN_PASSWORD`, then run `npm run bootstrap:admin -w @nexzi/payroll-api` (the password must be changed at first sign-in). Deployment options (Render, Docker Compose, or Node processes): [docs/deployment.md](docs/deployment.md).
 
 <img src="docs/assets/divider.svg" width="100%" alt="">
 
@@ -310,7 +310,7 @@ Integration tests need PostgreSQL with the `payroll_test` database (`TEST_DATABA
 
 ## ◆ Documentation
 
-[Architecture](docs/architecture.md) · [Database schema](docs/database-schema.md) · [API reference](docs/api-reference.md) · [Business rules](docs/payroll-business-rules.md) · [Sign-up and email](docs/signup-and-email.md) · [Security](docs/security.md) · [Testing](docs/testing.md) · [Deployment](docs/deployment.md) · [Backup and restore](docs/backup-and-restore.md) · [Known gaps](docs/known-gaps.md) · [Client questions](docs/client-questions.md) · [Feature-gap analysis](docs/feature-gap-analysis.md) · [Change requests A, B, F](docs/change-requests.md) · [Module status](docs/modules.md)
+[Architecture](docs/architecture.md) · [HR integration architecture](docs/INTEGRATION_ARCHITECTURE.md) · [HR feature mapping](docs/FEATURE_MAPPING.md) · [HR database migration](docs/DATABASE_MIGRATION.md) · [Database schema](docs/database-schema.md) · [API reference](docs/api-reference.md) · [Business rules](docs/payroll-business-rules.md) · [Sign-up and email](docs/signup-and-email.md) · [Security](docs/security.md) · [Testing](docs/testing.md) · [Deployment](docs/deployment.md) · [Backup and restore](docs/backup-and-restore.md) · [Known gaps](docs/known-gaps.md) · [Client questions](docs/client-questions.md) · [Feature-gap analysis](docs/feature-gap-analysis.md) · [Change requests A, B, F](docs/change-requests.md) · [Module status](docs/modules.md)
 
 ## ◆ License and acknowledgments
 

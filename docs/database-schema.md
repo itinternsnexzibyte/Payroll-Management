@@ -11,6 +11,10 @@ erDiagram
   users ||--o{ sessions : has
   departments ||--o{ employees : groups
   designations ||--o{ employees : titles
+  employees ||--o{ work_assignments : assigned
+  work_assignments ||--o{ work_submissions : revisions
+  employees ||--o{ calendar_events : scheduled
+  employees ||--o{ employee_notifications : receives
   employees ||--o{ employee_salary_versions : "salary history"
   employee_salary_versions ||--o{ employee_salary_values : contains
   salary_components ||--o{ employee_salary_values : "valued in"
@@ -31,6 +35,10 @@ erDiagram
 | `audit_logs` | Append-only (trigger blocks UPDATE/DELETE); indexed by time, entity, actor, action |
 | `departments`, `designations` | Masters (unique names, soft-deactivated) |
 | `employees` | Unique business `employeeCode` (also case-insensitive). Never hard-deleted |
+| `work_assignments` | HR workforce tasks linked to Payroll employees; open/closed state |
+| `work_submissions` | Text/HTTPS-link submissions with unique per-assignment revisions and review state |
+| `calendar_events` | Shared or employee-specific scheduled events |
+| `employee_notifications` | Employee-scoped read/unread in-app notifications |
 | `salary_components` | Unique code; type EARNING/DEDUCTION; basis FIXED / PERCENTAGE / INPUT / FORMULA; order; payslip visibility |
 | `employee_salary_versions` / `employee_salary_values` | Versioned structures: unique (employee, versionNo) and (employee, effectiveFrom); values immutable (trigger) |
 | `payroll_input_definitions` | Columns of the monthly input grid |
@@ -52,3 +60,5 @@ erDiagram
 | `20261015162158_init` | Tables, enums, foreign keys (RESTRICT to protect history), indexes |
 | `20261016104813_anomalies_reconciliation_knowledge` | Change requests A, B, F: alert, reconciliation, knowledge and checklist tables, append-only triggers, distinct-runs check |
 | `20261015170000_integrity_triggers` | Append-only audit, finalised-run guards, immutable salary values, case-insensitive unique indexes |
+| `20261024120000_workforce_assignments` | Additive workforce assignments and revisioned submissions; employee/task foreign keys use RESTRICT |
+| `20261024130000_calendar_notifications` | Additive calendar events and employee-scoped notifications |

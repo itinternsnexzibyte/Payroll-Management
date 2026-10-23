@@ -207,6 +207,9 @@ model Employee {
   loans          Loan[]
   bonuses        BonusEntry[]
   attendanceRecords AttendanceRecord[]
+  workAssignments  WorkAssignment[]
+  calendarEvents   CalendarEvent[]
+  notifications    EmployeeNotification[]
 
   @@index([fullName])
   @@index([status])
@@ -237,6 +240,86 @@ model AttendanceRecord {
   @@unique([employeeId, attendanceDate])
   @@index([attendanceDate])
   @@map("employee_attendance_records")
+}
+
+enum WorkAssignmentStatus {
+  OPEN
+  CLOSED
+}
+
+enum WorkSubmissionStatus {
+  SUBMITTED
+  NEEDS_CHANGES
+  ACCEPTED
+}
+
+model WorkAssignment {
+  id          String                @id @default(uuid()) @db.Uuid
+  employeeId  String                @db.Uuid
+  employee    Employee              @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  title       String                @db.VarChar(200)
+  description String?
+  dueDate     DateTime?             @db.Date
+  status      WorkAssignmentStatus  @default(OPEN)
+  createdById String?               @db.Uuid
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  submissions WorkSubmission[]
+
+  @@index([employeeId, status])
+  @@index([dueDate])
+  @@map("work_assignments")
+}
+
+model WorkSubmission {
+  id                String               @id @default(uuid()) @db.Uuid
+  assignmentId      String               @db.Uuid
+  assignment        WorkAssignment       @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  revision          Int
+  submissionText    String?
+  submissionUrl     String?              @db.VarChar(500)
+  status            WorkSubmissionStatus @default(SUBMITTED)
+  submittedAt       DateTime             @default(now())
+  reviewedAt        DateTime?
+  reviewedById      String?              @db.Uuid
+  reviewerFeedback  String?
+
+  @@unique([assignmentId, revision])
+  @@index([assignmentId, submittedAt])
+  @@map("work_submissions")
+}
+
+model CalendarEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String    @db.VarChar(200)
+  description String?
+  eventDate   DateTime  @db.Date
+  eventTime   String?   @db.VarChar(5)
+  color       String    @default("#f3c440") @db.VarChar(7)
+  employeeId  String?   @db.Uuid
+  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([eventDate, eventTime])
+  @@index([employeeId, eventDate])
+  @@map("calendar_events")
+}
+
+model EmployeeNotification {
+  id        String    @id @default(uuid()) @db.Uuid
+  employeeId String   @db.Uuid
+  employee  Employee  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  title     String    @db.VarChar(200)
+  message   String
+  kind      String    @db.VarChar(30)
+  targetUrl String?   @db.VarChar(500)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([employeeId, readAt, createdAt])
+  @@map("employee_notifications")
 }
 
 // ---------------------------------------------------------------- Salary

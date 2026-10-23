@@ -32,6 +32,13 @@ export const PERMISSIONS = {
   'integrations.manage': 'Manage the attendance application connection, its API keys and received attendance',
   'attendance.view': 'View employee daily attendance records',
   'attendance.manage': 'Create, edit and remove employee daily attendance records',
+  'workforce.view': 'View employee assignments and submissions',
+  'workforce.manage': 'Create and manage employee assignments',
+  'workforce.submit': 'View and submit work assigned to the linked employee',
+  'workforce.review': 'Review employee work submissions',
+  'calendar.view': 'View general and employee-specific calendar events',
+  'calendar.manage': 'Create, edit and cancel calendar events',
+  'notifications.view': 'View and manage notifications for the linked employee',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -54,7 +61,7 @@ export const ROLE_DEFAULTS: Record<string, { name: string; description: string; 
   EMPLOYEE: {
     name: 'Employee',
     description: 'Employee self-service: sees only their own payslips and details, and requests their own leave. The account must be linked to an employee record.',
-    permissions: ['self.service'],
+    permissions: ['self.service', 'workforce.submit', 'calendar.view', 'notifications.view'],
     enabledByDefault: true,
   },
   VIEWER: {

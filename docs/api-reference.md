@@ -2,7 +2,7 @@
 
 - Swagger UI: http://localhost:4001/docs · OpenAPI JSON: http://localhost:4001/openapi.json
 - Exported copies: [openapi/payroll.json](openapi/payroll.json) and the
-  [endpoint table](openapi/payroll-endpoints.md) (125 operations, with required permissions)
+  [endpoint table](openapi/payroll-endpoints.md) (161 operations, with required permissions)
 
 The docs are generated from the same route declarations that enforce validation and
 permissions. From the browser, endpoints are reached under the web app's `/api` prefix

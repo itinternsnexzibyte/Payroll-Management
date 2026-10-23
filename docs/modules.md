@@ -1,6 +1,6 @@
 # Module status — core and advanced modules
 
-Status of the module list (12 core, 8 advanced) against this repository, 16 Oct 2026.
+Status of the module list (12 core, 10 advanced) against this repository, 24 Oct 2026.
 
 ## Core modules
 
@@ -30,6 +30,8 @@ Status of the module list (12 core, 8 advanced) against this repository, 16 Oct 
 | Bonus & incentives | ✅ **Added** | Amounts per employee and month, proposed and approved by different people; approved amounts fill the mapped inputs. Incentive *formulas* are the client's and are not calculated here |
 | Email notifications | ✅ **Added** | Approvers on submission, finalisers on approval, employees when their payslip is available and when leave is decided. Each can be switched off; emails never contain amounts |
 | Attendance integration | ✅ **Daily register + file import + live sync added** | The source attendance app's admin daily-register workflow is adapted to Payroll's own employees, permissions, audit log, and database. It does not import the source app's separate MySQL/auth stack or GPS/session tracking. Daily records do not alter payroll inputs automatically. Attendance files import through the monthly input import. **Live sync:** the attendance application sends each month to `POST /integrations/attendance` with an API key; fields are mapped to input columns, reviewed and applied (or applied automatically) to Draft/Calculated payroll only |
+| Workforce assignments | ✅ **Added** | Assignments link to canonical employee UUIDs; employees submit text or HTTPS links, managers can review submissions, and requested changes retain revision history. Access uses dedicated Workforce permissions and audit records. No source submissions/files are imported; no payroll inputs are changed |
+| Calendar & in-app notifications | ✅ **Added** | Shared or employee-specific events, date/time/color, scoped employee views, and read/unread notifications for calendar and assignment updates. Notifications are tied to Payroll employee UUIDs; no HR source records are imported |
 | Bank salary export | ✅ **Added — needs `BANK_DATA_KEY`** | Payroll → Bank salary payments. Employee bank details stored encrypted (masked everywhere), configurable CSV/XLSX file layout, file for finalised payroll only, missing details listed, every file recorded. Set the layout to your bank's format before the first upload |
 
 ## How the modules reach payroll
@@ -43,8 +45,10 @@ components that use those input columns decide how they affect pay.
 ## Permissions added
 
 `leave.view`, `leave.manage`, `leave.approve`, `loans.manage`, `bonuses.manage`, `self.service`,
-`bank.view`, `bank.manage`, `bank.export`, `integrations.manage` (bank and integration permissions
-are given to Administrators only).
+`bank.view`, `bank.manage`, `bank.export`, `integrations.manage`, `workforce.view`,
+`workforce.manage`, `workforce.submit`, `workforce.review`, `calendar.view`, `calendar.manage`,
+`notifications.view` (bank, integration, Workforce management/review, and calendar management
+permissions are granted deliberately).
 Administrators receive new permissions automatically. **Existing** roles are never changed
 automatically: grant the new permissions to the Payroll User role in Roles & permissions if
 wanted (new installations include `leave.view`, `leave.manage`, `loans.manage` and
@@ -59,3 +63,11 @@ Migration `20261016150000_payroll_modules` (additive): employee contact columns,
 Migration `20261016180000_statutory_bank_attendance` (additive): `employee_bank_accounts`
 (encrypted account number), `bank_exports` (append-only), `integration_keys` (hashed),
 `attendance_batches`.
+
+Migration `20261024120000_workforce_assignments` (additive): `work_assignments`,
+`work_submissions`, and submission status enums. Migration `20261024130000_calendar_notifications`
+(additive): `calendar_events` and `employee_notifications`. Only the Administrator role receives
+new management permissions automatically. New installations give the Employee role
+`workforce.submit`, `calendar.view`, and `notifications.view`; existing roles are unchanged and
+require an Administrator to grant permissions.
+See [HR integration architecture](INTEGRATION_ARCHITECTURE.md).

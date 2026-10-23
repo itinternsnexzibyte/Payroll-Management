@@ -10,67 +10,38 @@ Internet ──HTTPS──► Reverse proxy (TLS, HSTS) ──► payroll-web :3
 Only the web container is exposed. The API needs a persistent volume for `STORAGE_DIR`
 (payslip PDFs); Chromium is installed in the API image.
 
-## Option V — Vercel web frontend + separately hosted API
-
-The Next.js frontend is configured for Vercel in `apps/payroll-web/vercel.json`. Vercel hosts
-the web application only. The Payroll API is a long-running Express service and needs PostgreSQL
-plus durable private storage for payslip PDFs; those services must run on a separate host with a
-persistent volume. Do not deploy the current API as a Vercel Function: its local PDF storage would
-not be durable.
-
-1. Create a Vercel project for this repository with `apps/payroll-web` as the Root Directory, and
-   enable **Include source files outside of the Root Directory** so the shared UI package is
-   available. The checked-in configuration installs dependencies at the workspace root and builds
-   `@nexzi/payroll-web`.
-2. Deploy the API, PostgreSQL database, and persistent `STORAGE_DIR` on a host that supports a
-   continuously running Node.js service and durable volumes. Build with
-   `npm run build -w @nexzi/payroll-api`, run database migrations with
-   `npm run db:migrate -w @nexzi/payroll-api`, and start with
-   `npm run start -w @nexzi/payroll-api`.
-3. Set `API_INTERNAL_URL` in the Vercel project's Production environment to the public HTTPS base
-   URL of the API (for example, `https://payroll-api.example.com`). This is a server-side rewrite
-   destination, not a `NEXT_PUBLIC_*` variable. Vercel builds fail if this URL is missing or not
-   HTTPS.
-4. On the API host, set `ALLOWED_ORIGINS` to the exact HTTPS origin of the Vercel site (including
-   any custom domain), `COOKIE_SECURE=true`, `NODE_ENV=production`, `TRUST_PROXY=1`, the production
-   `DATABASE_URL`, and all other required production environment variables below. Never use a
-   wildcard origin. Vercel preview URLs must be explicitly allowed if preview deployments need to
-   make state-changing API requests; do not broadly allow every preview hostname.
-5. After configuring production secrets and migrations, create the first Administrator using the
-   documented `BOOTSTRAP_ADMIN_*` process. Do not reuse development seed credentials.
-
-The frontend rewrites `/api/*` through the same Vercel origin to `API_INTERNAL_URL`, preserving the
-host-only secure session cookie and the API's Origin-based CSRF check. A Vercel deployment serves
-the web app, but it is not production-ready until the API, database, durable storage, email, secrets,
-administrator account, and go-live checks below are configured and tested.
-
-## Option R — Render API + PostgreSQL with Vercel frontend
+## Option R — Render web, API, and PostgreSQL
 
 Use [`infra/render/payroll-api.env.example`](../infra/render/payroll-api.env.example) as a list of
 environment variable names and safe example values; it is not a populated secrets file.
 
-1. Create a Render PostgreSQL database and a Render **Web Service** from this repository. Use the
-   repository root, Runtime **Node**, Build Command `npm ci && npm run build -w @nexzi/payroll-api`,
-   and Start Command `npm run start -w @nexzi/payroll-api`.
-2. Add a Render persistent disk mounted at `/var/data` and set `STORAGE_DIR=/var/data/storage`.
-   Keep generated payslips on this disk; do not rely on the service's ephemeral filesystem.
-3. Add the variables from the example to the Render service. Set `DATABASE_URL` to the Render
-   database's **internal** connection URL, `ALLOWED_ORIGINS` to the exact Vercel production origin,
-   and `COOKIE_SECURE=true`. Use the Render-provided `PORT` (do not hard-code it when configuring
-   Render). Fill in SMTP settings only after selecting an email provider.
-4. Before serving traffic after the first deployment, run
-   `npm run db:migrate -w @nexzi/payroll-api` once against the production `DATABASE_URL`. For later
-   deployments, run the same forward-only migrations before the new API version handles traffic.
-5. Create the first production Administrator using the documented `BOOTSTRAP_ADMIN_*` process;
+1. Create a Render PostgreSQL database and two Render **Web Services** from this repository: one
+   for the API and one for the web frontend. Use the same region for all services.
+2. Configure the API service to use the repository root as its Docker context and
+   `infra/docker/api.Dockerfile` as its Dockerfile. Attach a persistent disk mounted at `/var/data`
+   and set `STORAGE_DIR=/var/data/storage`; generated payslip PDFs must not be stored on the
+   ephemeral filesystem.
+3. Add the variables from the example to the API service. Set `DATABASE_URL` to the Render
+   database's **internal** connection URL, `ALLOWED_ORIGINS` to the exact HTTPS origin of the
+   Render web service, and `COOKIE_SECURE=true`. Enable `RUN_MIGRATIONS=true`. Use the Render-
+   provided `PORT`. Fill in SMTP settings only after selecting an email provider.
+4. Configure the web service using repository-root Docker context and
+   `infra/docker/web.Dockerfile`. Set its build-time `API_INTERNAL_URL` to the API service's HTTPS
+   URL. The web service proxies `/api/*` to the API; users sign in through the web service's
+   origin, preserving the secure session cookie and the API's Origin-based CSRF check.
+5. Before serving traffic after the first deployment, run
+   `npm run db:migrate -w @nexzi/payroll-api` once against the production `DATABASE_URL`, or let
+   the API Docker entrypoint run it with `RUN_MIGRATIONS=true`. Keep migrations forward-only.
+6. Create the first production Administrator using the documented `BOOTSTRAP_ADMIN_*` process;
    do not set development `SEED_*` accounts in production. Generate a fresh `BANK_DATA_KEY` if
    bank account storage is enabled and retain it securely for the life of the database.
-6. Copy the Render API's HTTPS URL into Vercel's `API_INTERNAL_URL`, then deploy the Vercel
-   frontend. Verify `https://<render-service>/health` and `/ready`, then test login and a
-   state-changing request through the Vercel site.
+7. Verify the API's `/health` and `/ready` endpoints, then test login and a state-changing request
+   through the Render web service.
 
 Use Render's secret/environment settings for all actual database URLs, passwords, and encryption
 keys. Do not upload or commit a populated `.env` file. Keep payroll rules and payslip approval
-flags `false` until the existing go-live checks are complete.
+flags `false` until the existing go-live checks are complete. Select an instance plan with persistent
+disk support for the API service.
 
 ## Option A — Docker Compose
 

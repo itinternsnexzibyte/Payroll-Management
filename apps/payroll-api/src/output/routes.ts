@@ -454,6 +454,17 @@ export function registerOutputRoutes(r: ApiRegistry) {
         const pending = await prisma.user.findMany({ where: { status: 'PENDING' }, include: { role: true }, orderBy: { createdAt: 'asc' }, take: 10 });
         for (const u of pending) items.push({ id: `account-${u.id}`, message: `${u.name} requested a ${u.role.name} account`, href: '/admin/users?status=PENDING' });
       }
+      if (p.has('notifications.view')) {
+        const employeeId = (await prisma.user.findUnique({ where: { id: user.id }, select: { employeeId: true } }))?.employeeId;
+        if (employeeId) {
+          const notifications = await prisma.employeeNotification.findMany({
+            where: { employeeId, readAt: null },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          });
+          for (const n of notifications) items.push({ id: `employee-${n.id}`, message: `${n.title}: ${n.message}`, href: n.targetUrl ?? '/notifications' });
+        }
+      }
       return { items };
     },
   });
