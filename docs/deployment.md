@@ -44,6 +44,34 @@ host-only secure session cookie and the API's Origin-based CSRF check. A Vercel 
 the web app, but it is not production-ready until the API, database, durable storage, email, secrets,
 administrator account, and go-live checks below are configured and tested.
 
+## Option R — Render API + PostgreSQL with Vercel frontend
+
+Use [`infra/render/payroll-api.env.example`](../infra/render/payroll-api.env.example) as a list of
+environment variable names and safe example values; it is not a populated secrets file.
+
+1. Create a Render PostgreSQL database and a Render **Web Service** from this repository. Use the
+   repository root, Runtime **Node**, Build Command `npm ci && npm run build -w @nexzi/payroll-api`,
+   and Start Command `npm run start -w @nexzi/payroll-api`.
+2. Add a Render persistent disk mounted at `/var/data` and set `STORAGE_DIR=/var/data/storage`.
+   Keep generated payslips on this disk; do not rely on the service's ephemeral filesystem.
+3. Add the variables from the example to the Render service. Set `DATABASE_URL` to the Render
+   database's **internal** connection URL, `ALLOWED_ORIGINS` to the exact Vercel production origin,
+   and `COOKIE_SECURE=true`. Use the Render-provided `PORT` (do not hard-code it when configuring
+   Render). Fill in SMTP settings only after selecting an email provider.
+4. Before serving traffic after the first deployment, run
+   `npm run db:migrate -w @nexzi/payroll-api` once against the production `DATABASE_URL`. For later
+   deployments, run the same forward-only migrations before the new API version handles traffic.
+5. Create the first production Administrator using the documented `BOOTSTRAP_ADMIN_*` process;
+   do not set development `SEED_*` accounts in production. Generate a fresh `BANK_DATA_KEY` if
+   bank account storage is enabled and retain it securely for the life of the database.
+6. Copy the Render API's HTTPS URL into Vercel's `API_INTERNAL_URL`, then deploy the Vercel
+   frontend. Verify `https://<render-service>/health` and `/ready`, then test login and a
+   state-changing request through the Vercel site.
+
+Use Render's secret/environment settings for all actual database URLs, passwords, and encryption
+keys. Do not upload or commit a populated `.env` file. Keep payroll rules and payslip approval
+flags `false` until the existing go-live checks are complete.
+
 ## Option A — Docker Compose
 
 > The Dockerfiles and compose file have **not yet been built or run**: Docker was not available in
