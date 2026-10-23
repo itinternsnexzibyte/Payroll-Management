@@ -10,7 +10,7 @@ Status of the module list (12 core, 8 advanced) against this repository, 16 Oct 
 | 2 | Employee management | ✅ Implemented — ID, name, department, designation, joining/exit, status, **contact email and phone (added)**, import/export | Employees |
 | 3 | Salary structure | ✅ Implemented — fixed, percentage, monthly-input and approved-formula components; versioned per employee | Salary components, employee Salary tab |
 | 4 | Monthly payroll processing | ✅ Implemented — month, Excel-like inputs, server calculation, employee-wise results | Payroll runs |
-| 5 | Attendance & leave inputs | ✅ **Added** — template download and CSV/XLSX import of any monthly input column (working days, attendance, unpaid leave…), plus fill from approved leave | Payroll run → Monthly inputs |
+| 5 | Attendance & leave inputs | ✅ **Added** — admin daily attendance register; template download and CSV/XLSX import of any monthly input column (working days, attendance, unpaid leave…), plus fill from approved leave | Attendance records; Payroll run → Monthly inputs |
 | 6 | Calculation engine | ✅ Implemented — formulas wait for the client workbook (`FORMULA` components stay blocked until coded) | — |
 | 7 | Review & approval | ✅ Implemented — exceptions, alerts, reconciliation, submit, approve, finalise, re-open | Payroll run |
 | 8 | Payslip generation | ✅ Implemented — stored PDFs, bulk print; layout provisional until the client format arrives | Payroll run → Payslips |

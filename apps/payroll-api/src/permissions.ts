@@ -30,6 +30,8 @@ export const PERMISSIONS = {
   'bank.manage': 'Add and change employee bank details',
   'bank.export': 'Generate the bank salary file for finalised payroll',
   'integrations.manage': 'Manage the attendance application connection, its API keys and received attendance',
+  'attendance.view': 'View employee daily attendance records',
+  'attendance.manage': 'Create, edit and remove employee daily attendance records',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

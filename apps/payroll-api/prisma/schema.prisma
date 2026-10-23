@@ -206,11 +206,37 @@ model Employee {
   bankAccount    EmployeeBankAccount?
   loans          Loan[]
   bonuses        BonusEntry[]
+  attendanceRecords AttendanceRecord[]
 
   @@index([fullName])
   @@index([status])
   @@index([departmentId])
   @@map("employees")
+}
+
+enum AttendanceRecordStatus {
+  PRESENT
+  ABSENT
+  LEAVE
+}
+
+model AttendanceRecord {
+  id             String                 @id @default(uuid()) @db.Uuid
+  employeeId     String                 @db.Uuid
+  employee       Employee               @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  attendanceDate DateTime               @db.Date
+  loginTime      String?                @db.VarChar(5)
+  logoutTime     String?                @db.VarChar(5)
+  status         AttendanceRecordStatus @default(PRESENT)
+  workingMinutes Int?
+  createdById    String?                @db.Uuid
+  updatedById    String?                @db.Uuid
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([employeeId, attendanceDate])
+  @@index([attendanceDate])
+  @@map("employee_attendance_records")
 }
 
 // ---------------------------------------------------------------- Salary

@@ -21,6 +21,7 @@ const NAV: NavItem[] = [
   { label: 'Payroll settings', href: '/settings', icon: Settings2, permission: 'settings.manage', section: 'Configuration' },
   { label: 'Statutory deductions', href: '/statutory', icon: Landmark, permission: 'settings.manage', section: 'Configuration' },
   { label: 'Attendance sync', href: '/attendance-sync', icon: RadioTower, permission: 'integrations.manage', section: 'Configuration' },
+  { label: 'Attendance records', href: '/attendance', icon: CalendarDays, permission: 'attendance.view', section: 'Configuration' },
   { label: 'Departments', href: '/settings/masters', icon: Building2, permission: ['settings.manage', 'employees.manage'], section: 'Configuration' },
   { label: 'Knowledge centre', href: '/knowledge', icon: BookOpen, section: 'Handover' },
   { label: 'Users', href: '/admin/users', icon: Users, permission: 'users.manage', section: 'Administration' },
