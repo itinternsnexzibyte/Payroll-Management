@@ -10,6 +10,40 @@ Internet ──HTTPS──► Reverse proxy (TLS, HSTS) ──► payroll-web :3
 Only the web container is exposed. The API needs a persistent volume for `STORAGE_DIR`
 (payslip PDFs); Chromium is installed in the API image.
 
+## Option V — Vercel web frontend + separately hosted API
+
+The Next.js frontend is configured for Vercel in `apps/payroll-web/vercel.json`. Vercel hosts
+the web application only. The Payroll API is a long-running Express service and needs PostgreSQL
+plus durable private storage for payslip PDFs; those services must run on a separate host with a
+persistent volume. Do not deploy the current API as a Vercel Function: its local PDF storage would
+not be durable.
+
+1. Create a Vercel project for this repository with `apps/payroll-web` as the Root Directory, and
+   enable **Include source files outside of the Root Directory** so the shared UI package is
+   available. The checked-in configuration installs dependencies at the workspace root and builds
+   `@nexzi/payroll-web`.
+2. Deploy the API, PostgreSQL database, and persistent `STORAGE_DIR` on a host that supports a
+   continuously running Node.js service and durable volumes. Build with
+   `npm run build -w @nexzi/payroll-api`, run database migrations with
+   `npm run db:migrate -w @nexzi/payroll-api`, and start with
+   `npm run start -w @nexzi/payroll-api`.
+3. Set `API_INTERNAL_URL` in the Vercel project's Production environment to the public HTTPS base
+   URL of the API (for example, `https://payroll-api.example.com`). This is a server-side rewrite
+   destination, not a `NEXT_PUBLIC_*` variable. Vercel builds fail if this URL is missing or not
+   HTTPS.
+4. On the API host, set `ALLOWED_ORIGINS` to the exact HTTPS origin of the Vercel site (including
+   any custom domain), `COOKIE_SECURE=true`, `NODE_ENV=production`, `TRUST_PROXY=1`, the production
+   `DATABASE_URL`, and all other required production environment variables below. Never use a
+   wildcard origin. Vercel preview URLs must be explicitly allowed if preview deployments need to
+   make state-changing API requests; do not broadly allow every preview hostname.
+5. After configuring production secrets and migrations, create the first Administrator using the
+   documented `BOOTSTRAP_ADMIN_*` process. Do not reuse development seed credentials.
+
+The frontend rewrites `/api/*` through the same Vercel origin to `API_INTERNAL_URL`, preserving the
+host-only secure session cookie and the API's Origin-based CSRF check. A Vercel deployment serves
+the web app, but it is not production-ready until the API, database, durable storage, email, secrets,
+administrator account, and go-live checks below are configured and tested.
+
 ## Option A — Docker Compose
 
 > The Dockerfiles and compose file have **not yet been built or run**: Docker was not available in

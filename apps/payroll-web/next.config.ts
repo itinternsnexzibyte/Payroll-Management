@@ -3,11 +3,21 @@ import path from 'node:path';
 
 // The browser only talks to this origin; /api/* is proxied to the Payroll API so the session
 // cookie is first-party (SameSite=Strict). API_INTERNAL_URL is read at build time.
-// Some hosts supply "host:port" with no scheme, so add http:// when missing.
+// Some local hosts supply "host:port" with no scheme, so add http:// when missing.
 function apiOrigin(raw: string | undefined): string {
   const v = (raw ?? '').trim().replace(/\/+$/, '');
-  if (!v) return 'http://localhost:4001';
-  return /^https?:\/\//i.test(v) ? v : `http://${v}`;
+  if (!v) {
+    if (process.env.VERCEL) throw new Error('Set API_INTERNAL_URL to the HTTPS URL of the deployed Payroll API.');
+    return 'http://localhost:4001';
+  }
+  const url = new URL(/^https?:\/\//i.test(v) ? v : `http://${v}`);
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error('API_INTERNAL_URL must not contain credentials, a query string, or a fragment.');
+  }
+  if (process.env.VERCEL && (url.protocol !== 'https:' || ['localhost', '127.0.0.1'].includes(url.hostname))) {
+    throw new Error('Vercel deployments require API_INTERNAL_URL to be a public HTTPS URL.');
+  }
+  return url.toString().replace(/\/+$/, '');
 }
 const API = apiOrigin(process.env.API_INTERNAL_URL);
 
@@ -32,7 +42,7 @@ const nextConfig: NextConfig = {
   // Allows a second instance (e.g. E2E tests) to run alongside the dev server.
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
   poweredByHeader: false,
-  output: 'standalone',
+  ...(process.env.VERCEL ? {} : { output: 'standalone' as const }),
   outputFileTracingRoot: path.join(__dirname, '../../'),
   experimental: { externalDir: true },
   eslint: { ignoreDuringBuilds: true },

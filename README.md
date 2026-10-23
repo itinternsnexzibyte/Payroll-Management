@@ -246,7 +246,7 @@ Secrets belong only in `.env` (git-ignored) or the host's secret store — never
 
 </details>
 
-**Production first administrator:** `npm run build`, set `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and `BOOTSTRAP_ADMIN_PASSWORD`, then run `npm run bootstrap:admin -w @nexzi/payroll-api` (the password must be changed at first sign-in). Deployment options (Docker Compose or Node processes): [docs/deployment.md](docs/deployment.md).
+**Production first administrator:** `npm run build`, set `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and `BOOTSTRAP_ADMIN_PASSWORD`, then run `npm run bootstrap:admin -w @nexzi/payroll-api` (the password must be changed at first sign-in). Deployment options (Vercel frontend with a separately hosted API, Docker Compose, or Node processes): [docs/deployment.md](docs/deployment.md).
 
 <img src="docs/assets/divider.svg" width="100%" alt="">
 
