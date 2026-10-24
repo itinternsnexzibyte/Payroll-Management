@@ -30,6 +30,7 @@ export const settingsSchema = z.object({
     readyToFinalise: z.boolean(),
     payslipsAvailable: z.boolean(),
     leaveDecisions: z.boolean(),
+    attendanceAlerts: z.boolean().default(false),
   }),
   /** Statutory deductions (PF, ESI, TDS) — every figure entered and confirmed by the payroll team. */
   statutory: statutorySchema,
@@ -103,7 +104,7 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
   },
   attendanceSync: { enabled: false, autoApply: false, fieldMap: [] },
   inputMappings: { unpaidLeaveDays: null, advanceRecovery: null, bonus: null, incentive: null },
-  emailNotifications: { reviewRequests: true, readyToFinalise: true, payslipsAvailable: true, leaveDecisions: true },
+  emailNotifications: { reviewRequests: true, readyToFinalise: true, payslipsAvailable: true, leaveDecisions: true, attendanceAlerts: false },
 };
 
 export async function getSettings(db: Tx | typeof prisma = prisma): Promise<PayrollSettings> {

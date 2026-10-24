@@ -68,6 +68,7 @@ model User {
   /// Self-service: the employee record this account belongs to (one account per employee)
   employeeId         String?    @unique @db.Uuid
   employee           Employee?  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  attendanceEnabled  Boolean    @default(true)
 
   @@index([roleId])
   @@map("users")
@@ -207,9 +208,14 @@ model Employee {
   loans          Loan[]
   bonuses        BonusEntry[]
   attendanceRecords AttendanceRecord[]
+  attendanceWorkSessions AttendanceWorkSession[]
+  attendanceAccessRequests AttendanceAccessRequest[]
   workAssignments  WorkAssignment[]
   calendarEvents   CalendarEvent[]
   notifications    EmployeeNotification[]
+  workforceProfile EmployeeWorkforceProfile?
+  ratings          EmployeeRating[]
+  documents        EmployeeDocument[]
 
   @@index([fullName])
   @@index([status])
@@ -236,10 +242,81 @@ model AttendanceRecord {
   updatedById    String?                @db.Uuid
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
+  workSessions   AttendanceWorkSession[]
 
   @@unique([employeeId, attendanceDate])
   @@index([attendanceDate])
   @@map("employee_attendance_records")
+}
+
+model AttendanceWorkSession {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  attendanceRecordId  String                 @db.Uuid
+  attendanceRecord    AttendanceRecord       @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+  employeeId          String                 @db.Uuid
+  employee            Employee               @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  startedAt           DateTime
+  endedAt             DateTime?
+  lastHeartbeatAt     DateTime?
+  forcedCheckout      Boolean                @default(false)
+  checkoutReason      String?                @db.VarChar(100)
+  locationConsent     Boolean                @default(false)
+  breaks              AttendanceBreak[]
+  locations           AttendanceLocation[]
+  accessRequests      AttendanceAccessRequest[]
+
+  @@index([attendanceRecordId, startedAt])
+  @@index([employeeId, endedAt])
+  @@map("attendance_work_sessions")
+}
+
+model AttendanceBreak {
+  id        String                @id @default(uuid()) @db.Uuid
+  sessionId String                @db.Uuid
+  session   AttendanceWorkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  startedAt DateTime
+  endedAt   DateTime?
+
+  @@index([sessionId, startedAt])
+  @@map("attendance_breaks")
+}
+
+model AttendanceLocation {
+  id                String                @id @default(uuid()) @db.Uuid
+  sessionId         String                @db.Uuid
+  session           AttendanceWorkSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  capturedAt        DateTime              @default(now())
+  latitude          Decimal               @db.Decimal(10, 7)
+  longitude         Decimal               @db.Decimal(10, 7)
+  accuracyMeters    Decimal?              @db.Decimal(9, 2)
+  distanceFromStart Decimal               @default(0) @db.Decimal(12, 2)
+  distanceFromPrev  Decimal               @default(0) @db.Decimal(12, 2)
+
+  @@index([sessionId, capturedAt])
+  @@map("attendance_locations")
+}
+
+enum AttendanceAccessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AttendanceAccessRequest {
+  id          String                          @id @default(uuid()) @db.Uuid
+  employeeId  String                          @db.Uuid
+  employee    Employee                        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  sessionId   String?                         @db.Uuid
+  session     AttendanceWorkSession?          @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  reason      String
+  status      AttendanceAccessRequestStatus   @default(PENDING)
+  reviewedById String?                        @db.Uuid
+  createdAt   DateTime                        @default(now())
+  reviewedAt  DateTime?
+
+  @@index([employeeId, createdAt])
+  @@index([status, createdAt])
+  @@map("attendance_access_requests")
 }
 
 enum WorkAssignmentStatus {
@@ -1020,4 +1097,109 @@ model AttendanceBatch {
   @@unique([keyId, externalId])
   @@index([year, month])
   @@map("attendance_batches")
+}
+
+model EmployeeWorkforceProfile {
+  employeeId      String   @id @db.Uuid
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  teamsId         String?  @db.VarChar(150)
+  college         String?  @db.VarChar(200)
+  course          String?  @db.VarChar(150)
+  internshipRole  String?  @db.VarChar(150)
+  durationMonths  Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("employee_workforce_profiles")
+}
+
+model EmployeeRating {
+  id          String   @id @default(uuid()) @db.Uuid
+  employeeId  String   @db.Uuid
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  rating      Int
+  feedback    String?
+  ratingDate  DateTime @db.Date
+  createdById String?  @db.Uuid
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([employeeId, ratingDate])
+  @@index([ratingDate])
+  @@map("employee_ratings")
+}
+
+enum EmployeeDocumentCategory {
+  OFFER_LETTER
+  PROFILE_PHOTO
+  OTHER
+}
+
+model EmployeeDocument {
+  id           String                  @id @default(uuid()) @db.Uuid
+  employeeId   String                  @db.Uuid
+  employee     Employee                @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  category     EmployeeDocumentCategory
+  originalName String                  @db.VarChar(255)
+  storedName   String                  @unique @db.VarChar(100)
+  contentType  String                  @db.VarChar(100)
+  sizeBytes    Int
+  uploadedById String?                 @db.Uuid
+  createdAt    DateTime                @default(now())
+
+  @@index([employeeId, category, createdAt])
+  @@map("employee_documents")
+}
+
+enum ClientAvailability {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+enum ClientDocumentCategory {
+  PHOTO
+  AADHAAR
+  MOU
+}
+
+model ClientRecord {
+  id               String             @id @default(uuid()) @db.Uuid
+  clientName       String             @db.VarChar(200)
+  phoneCountryCode String?            @db.VarChar(10)
+  phoneNumber      String?            @db.VarChar(30)
+  country          String?            @db.VarChar(100)
+  stateRegion      String?            @db.VarChar(150)
+  city             String?            @db.VarChar(150)
+  address          String?
+  availability     ClientAvailability @default(AVAILABLE)
+  availableFrom    String?            @db.VarChar(5)
+  availableTo      String?            @db.VarChar(5)
+  referenceEmail   String?            @db.VarChar(255)
+  notes            String?
+  createdById      String?            @db.Uuid
+  updatedById      String?            @db.Uuid
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  documents        ClientDocument[]
+
+  @@index([clientName])
+  @@index([availability])
+  @@map("client_records")
+}
+
+model ClientDocument {
+  id           String                 @id @default(uuid()) @db.Uuid
+  clientId     String                 @db.Uuid
+  client       ClientRecord           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category     ClientDocumentCategory
+  originalName String                 @db.VarChar(255)
+  storedName   String                 @unique @db.VarChar(100)
+  contentType  String                 @db.VarChar(100)
+  sizeBytes    Int
+  uploadedById String?                @db.Uuid
+  createdAt    DateTime               @default(now())
+
+  @@index([clientId, category, createdAt])
+  @@map("client_documents")
 }

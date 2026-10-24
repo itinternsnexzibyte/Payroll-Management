@@ -33,10 +33,11 @@ import {
   useToast,
 } from '@nexzi/ui';
 import { EmployeeForm } from '@/components/employee-form';
+import { EmployeeDocumentsTab, EmployeeProfilePhoto, EmployeeRatingsTab, EmployeeWorkforceProfileTab } from '@/components/employee-workforce-details';
 import { SalaryVersionDialog } from '@/components/salary-version-dialog';
 import type { Employee, SalaryVersion } from '@/lib/types';
 
-type Tab = 'details' | 'salary' | 'payroll';
+type Tab = 'details' | 'workforce' | 'evaluations' | 'documents' | 'salary' | 'payroll';
 
 export default function EmployeePage() {
   return (
@@ -80,6 +81,7 @@ function EmployeeProfile() {
           ))
         }
       />
+      <EmployeeProfilePhoto employeeId={e.id} employeeName={e.fullName} />
       <Tabs<Tab>
         value={tab}
         onChange={(t) => {
@@ -88,6 +90,9 @@ function EmployeeProfile() {
         }}
         tabs={[
           { id: 'details', label: 'Details' },
+          { id: 'workforce', label: 'Workforce profile' },
+          { id: 'evaluations', label: 'Evaluations' },
+          { id: 'documents', label: 'Documents' },
           { id: 'salary', label: 'Salary', hidden: !can('salary.view') },
           { id: 'payroll', label: 'Payroll history', hidden: !can('payroll.view') },
         ]}
@@ -110,6 +115,9 @@ function EmployeeProfile() {
           )}
         </Card>
       )}
+      {tab === 'workforce' && <EmployeeWorkforceProfileTab employeeId={e.id} canManage={can('employees.manage')} />}
+      {tab === 'evaluations' && <EmployeeRatingsTab employeeId={e.id} canManage={can('workforce.manage')} />}
+      {tab === 'documents' && <EmployeeDocumentsTab employeeId={e.id} canManage={can('employees.manage')} />}
       {tab === 'salary' && <SalaryTab employeeId={e.id} />}
       {tab === 'payroll' && <PayrollHistoryTab employeeId={e.id} />}
       <DeactivateDialog open={deactivating} onClose={() => setDeactivating(false)} employee={e} onDone={() => q.refetch()} />

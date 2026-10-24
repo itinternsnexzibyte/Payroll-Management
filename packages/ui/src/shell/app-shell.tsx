@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Bell, ChevronsLeft, ChevronsRight, KeyRound, LogOut, Menu, ShieldX, X } from 'lucide-react';
@@ -115,6 +115,7 @@ function UserMenu() {
 export function AppShell({ brand, nav, children, banner, notifications = true }: { brand: Brand; nav: NavItem[]; children: ReactNode; banner?: ReactNode; notifications?: boolean }) {
   const { user, loading, canAny } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -177,6 +178,8 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
                     <li key={n.href}>
                       <Link
                         href={n.href}
+                        onPointerEnter={() => router.prefetch(n.href)}
+                        onFocus={() => router.prefetch(n.href)}
                         title={collapsed ? n.label : undefined}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
@@ -226,7 +229,7 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
           <UserMenu />
         </header>
         {banner}
-        <main key={pathname} className="fx-enter mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
   );
@@ -264,4 +267,3 @@ export function BrandMark({ letter }: { letter: string }) {
     </span>
   );
 }
-

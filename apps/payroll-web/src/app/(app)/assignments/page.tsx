@@ -116,7 +116,8 @@ function AssignmentWorkspace() {
 
   if ((managerView && all.isLoading) || (canSubmit && mine.isLoading)) return <Spinner />;
   const error = (managerView && all.error) || (canSubmit && mine.error);
-  if (error) return <ErrorState message={errorMessage(error)} onRetry={() => { all.refetch(); mine.refetch(); }} />;
+  if (managerView && all.error) return <ErrorState message={errorMessage(all.error)} onRetry={() => all.refetch()} />;
+  if (!managerView && error) return <ErrorState message={errorMessage(error)} onRetry={() => mine.refetch()} />;
 
   return (
     <div className="space-y-5">
@@ -135,12 +136,16 @@ function AssignmentWorkspace() {
       )}
       {canSubmit && (
         <Card padded={false} title="My assigned work">
-          <AssignmentTable
-            rows={mine.data ?? []}
-            emptyTitle="No work assigned"
-            emptyHint="Assignments for your linked employee profile will appear here."
-            onSubmit={setSubmitting}
-          />
+          {mine.error ? (
+            <ErrorState message={errorMessage(mine.error)} onRetry={() => mine.refetch()} />
+          ) : (
+            <AssignmentTable
+              rows={mine.data ?? []}
+              emptyTitle="No work assigned"
+              emptyHint="Assignments for your linked employee profile will appear here."
+              onSubmit={setSubmitting}
+            />
+          )}
         </Card>
       )}
       {creating && <CreateAssignmentDialog onClose={() => setCreating(false)} onSaved={() => { setCreating(false); refresh(); }} />}

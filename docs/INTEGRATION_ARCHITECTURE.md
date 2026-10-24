@@ -68,22 +68,44 @@ Use Payroll's existing modular-monolith architecture as the one application:
 
 Features already implemented in Payroll remain the source of truth for employees, departments,
 designations, attendance records, leave, salary, payroll, payslips, reports, permissions, and audit.
-The HR app's administrator daily register has already been adapted to Payroll employee IDs and its
-permission/audit model.
+The HR attendance workflows are adapted to Payroll employee IDs and its permission/audit model:
+employees can check in and out, manage breaks, and send session heartbeats; administrators can
+review daily session totals and forced-checkout reactivation requests. A server watchdog closes
+sessions that stop sending heartbeats. Manual register edits cannot overwrite session-tracked
+attendance.
+
+Location tracking is optional and requires employee consent. The employee can turn it off during a
+session; recorded coordinates are excluded from normal attendance responses and are accessible only
+through the dedicated attendance-location permission. Location data does not affect payroll.
+Attendance sessions and the existing monthly attendance-input sync are separate workflows; neither
+silently changes a finalized payroll.
 
 HR assignments and text/link submissions are integrated as an additive Payroll Workforce module.
 It is linked to `Employee`, uses Payroll permissions and audit logging, supports submission
 revisions and manager review, and has no effect on payroll calculations. Calendar events and
 in-app notifications are also integrated as additive Payroll modules. Events may be shared or
 employee-specific; notifications are scoped to the linked employee and include event and assignment
-updates. Workforce profile fields and ratings remain candidates for later modules, linked to
-`Employee` and protected by explicit Payroll permissions.
+updates. Extended workforce profiles, dated employee ratings, private offer-letter/document
+uploads, profile photos, and their employee self-service views are also linked to Payroll's
+canonical employee IDs and protected by Payroll permissions and audit logging. The daily attendance
+register includes a month navigator, employee filter, work totals, and session/break summaries.
 
-GPS location histories, Aadhaar/identity-card files, HR source-system user accounts, and its
-standalone JSON payroll calculation are deliberately not copied automatically. GPS and identity
-documents require explicit purpose, consent/access, retention, and deployment-storage decisions.
-The source payroll records need a validated, decimal-safe import into Payroll's historical model;
-they must not be replayed through the current payroll engine or silently re-calculated.
+Private employee attachments are limited to PDF/PNG/JPEG/WebP files up to 5 MB. Local development
+stores them under `apps/payroll-api/.data/private-employee-files` (override with
+`PRIVATE_EMPLOYEE_STORAGE_DIR`); this path is outside the public web root and should be included in
+local backups. The current deployment storage/retention policy is not configured by this integration.
+
+Client records and the source client photo, identity-card, and MOU file workflows are integrated
+under the Payroll `clients.*` permissions. Client identity and agreement files are encrypted at
+rest with AES-256-GCM using a dedicated `CLIENT_DATA_KEY`; downloads are audited and sensitive
+documents require `clients.sensitive.view`. Local files are stored outside the web root under
+`apps/payroll-api/.data/private-client-files` (override with `PRIVATE_CLIENT_STORAGE_DIR`).
+Configure and back up the key securely; losing it makes these files unreadable. Retention duration
+and imported source records remain data-governance/migration matters, not missing application
+workflows.
+HR source-system user accounts and its standalone JSON payroll calculation are not copied into
+Payroll. The source payroll records need a validated, decimal-safe import into Payroll's historical
+model; they must not be replayed through the current payroll engine or silently re-calculated.
 
 ## Deployment
 
@@ -91,12 +113,11 @@ Use Render for the web service, API, PostgreSQL, and durable private storage as 
 [`deployment.md`](./deployment.md). Production secrets belong in Render's Environment settings.
 No application feature or database is removed as part of choosing Render.
 
-## Decisions requiring external input
+## Operational data-migration requirements
 
 - A verified export/backup of the existing HR production database and its storage directory before
   any legacy-data migration.
 - Confirmation of identity matching rules for source interns/employees and account linking.
-- Written policy for GPS collection, identity-document storage/access/retention, and attendance
-  capture.
+- The organization's retention schedule for GPS and sensitive client records.
 - Client-approved mapping for legacy payroll JSON records, statuses, rounding, and payslip artifacts.
-- Production Render database URL, allowed web origin, persistent disk, email provider, and secrets.
+- Production database URL, allowed web origin, persistent disk, email provider, and secrets.

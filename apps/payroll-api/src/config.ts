@@ -19,6 +19,11 @@ export const config = parseEnv({
     .string()
     .optional()
     .refine((v) => !v || Buffer.from(v, 'base64').length === 32, 'BANK_DATA_KEY must be 32 bytes, base64-encoded'),
+  /** Dedicated 32-byte AES-256-GCM key for private client identity and agreement documents. */
+  CLIENT_DATA_KEY: z
+    .string()
+    .optional()
+    .refine((v) => !v || Buffer.from(v, 'base64').length === 32, 'CLIENT_DATA_KEY must be 32 bytes, base64-encoded'),
   PAYSLIP_COMPANY_NAME: z.string().default('[Client company name — awaiting approved payslip format]'),
 });
 

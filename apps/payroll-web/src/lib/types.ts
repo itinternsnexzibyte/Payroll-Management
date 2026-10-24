@@ -122,7 +122,7 @@ export interface Settings {
   unusualChangeThresholdPercent: number | null;
   anomalyRules: AnomalyRules;
   inputMappings: { unpaidLeaveDays: string | null; advanceRecovery: string | null; bonus: string | null; incentive: string | null };
-  emailNotifications: { reviewRequests: boolean; readyToFinalise: boolean; payslipsAvailable: boolean; leaveDecisions: boolean };
+  emailNotifications: { reviewRequests: boolean; readyToFinalise: boolean; payslipsAvailable: boolean; leaveDecisions: boolean; attendanceAlerts: boolean };
   rulesApproved: boolean;
   viewerRoleEnabled: boolean;
   payslipCompanyName: string;

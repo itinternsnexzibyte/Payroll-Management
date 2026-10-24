@@ -90,7 +90,8 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
       const res = await post<{ user: { mustChangePassword: boolean } }>('/auth/login', { email: email.trim(), password, portal });
       qc.clear();
       const next = params.get('next');
-      router.replace(res.user.mustChangePassword ? '/change-password' : next && next.startsWith('/') && !next.startsWith('//') ? next : '/');
+      const destination = res.user.mustChangePassword ? '/change-password' : next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+      window.location.assign(destination);
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Sign-in failed. Please try again.');
       setPassword('');

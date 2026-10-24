@@ -3,6 +3,7 @@ import { createApp, logger } from './app';
 import { prepareDatabase } from './database-bootstrap';
 import { config } from './config';
 import { prisma } from './db';
+import { runAttendanceWatchdogSafely } from './attendance/sessions';
 
 prepareDatabase(logger).catch((err: Error) => logger.error({ err: err.message }, 'Start-up database preparation failed'));
 
@@ -10,9 +11,12 @@ const app = createApp();
 const server = app.listen(config.PORT, () => {
   logger.info({ port: config.PORT, rulesApproved: config.PAYROLL_RULES_APPROVED }, `Payroll API listening on http://localhost:${config.PORT} (docs: /docs)`);
 });
+const attendanceWatchdog = setInterval(() => void runAttendanceWatchdogSafely(logger), 15_000);
+attendanceWatchdog.unref();
 
 async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down');
+  clearInterval(attendanceWatchdog);
   server.close();
   await closePdfBrowser();
   await prisma.$disconnect();

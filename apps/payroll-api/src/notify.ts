@@ -94,3 +94,43 @@ export async function notifyLeaveDecision(requestId: string): Promise<number> {
   }
 }
 
+type AttendanceEvent = 'FORCED_CHECKOUT' | 'ACCESS_REQUESTED' | 'ACCESS_APPROVED' | 'ACCESS_REJECTED';
+
+/** Sends configured attendance alerts without exposing location or payroll data. */
+export async function notifyAttendance(employeeId: string, event: AttendanceEvent): Promise<number> {
+  try {
+    if (!(await getSettings()).emailNotifications.attendanceAlerts) return 0;
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: { user: { select: { email: true, status: true } } },
+    });
+    if (!employee) return 0;
+
+    const subjectByEvent: Record<AttendanceEvent, string> = {
+      FORCED_CHECKOUT: 'An attendance session ended automatically',
+      ACCESS_REQUESTED: 'An employee requested attendance access',
+      ACCESS_APPROVED: 'Your attendance access was restored',
+      ACCESS_REJECTED: 'Your attendance access request was declined',
+    };
+    const subject = subjectByEvent[event];
+    const recipients = event === 'ACCESS_APPROVED' || event === 'ACCESS_REJECTED'
+      ? employee.user?.status === 'ACTIVE' && employee.user.email ? [{ email: employee.user.email }] : []
+      : await recipientsWith('attendance.manage');
+    if (!recipients.length) return 0;
+
+    const employeeName = employee.fullName.replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char]!);
+    const body = event === 'FORCED_CHECKOUT'
+      ? `An attendance session ended automatically for ${employeeName}. Review attendance if needed.`
+      : event === 'ACCESS_REQUESTED'
+        ? `${employeeName} requested attendance access after an automatic checkout. Review the request in Attendance.`
+        : event === 'ACCESS_APPROVED'
+          ? 'An administrator approved your request. You can use My attendance again.'
+          : 'An administrator declined your attendance access request. Contact your administrator if you need help.';
+    return sendAll(recipients, subject, body.replace(/<[^>]*>/g, ''), body, event === 'ACCESS_REQUESTED' || event === 'FORCED_CHECKOUT' ? '/attendance' : '/my/attendance');
+  } catch (err) {
+    log.error({ employeeId, event, err: (err as Error).message }, 'Attendance notification failed');
+    return 0;
+  }
+}
