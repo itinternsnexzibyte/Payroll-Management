@@ -29,7 +29,7 @@ export function registerSelfServiceRoutes(r: ApiRegistry) {
     permission: 'self.service',
     handler: async ({ user }) => {
       const e = await myEmployee(user);
-      return { employeeCode: e.employeeCode, fullName: e.fullName, department: e.department?.name ?? null, designation: e.designation?.name ?? null, joiningDate: toIsoDate(e.joiningDate), status: e.status, contactEmail: e.contactEmail, contactPhone: e.contactPhone };
+      return { id: e.id, employeeCode: e.employeeCode, fullName: e.fullName, department: e.department?.name ?? null, designation: e.designation?.name ?? null, joiningDate: toIsoDate(e.joiningDate), status: e.status, contactEmail: e.contactEmail, contactPhone: e.contactPhone };
     },
   });
 

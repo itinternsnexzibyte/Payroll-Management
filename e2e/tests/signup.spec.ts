@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { E2E } from '../playwright.config';
+import { login } from './helpers';
 
 const MAILBOX = resolve(__dirname, '../../.data/e2e-storage/dev-mailbox');
 
@@ -52,20 +53,16 @@ for (const [name, base] of [
     await page.locator('#su-name').fill('Browser Signup');
     await page.locator('#su-pw').fill('short');
     await page.locator('#su-confirm').fill('short');
-    await page.getByRole('button', { name: 'Sign up' }).click();
-    await expect(page.getByText('Use at least 10 characters')).toBeVisible();
+    await page.getByRole('button', { name: 'Create User account' }).click();
+    await expect(page.getByText(/Use at least 10 characters/)).toBeVisible();
     await page.locator('#su-pw').fill(password);
     await page.locator('#su-confirm').fill(password);
-    await page.getByRole('button', { name: 'Sign up' }).click();
+    await page.getByRole('button', { name: 'Create User account' }).click();
     await expect(page.getByRole('heading', { name: 'Account created' })).toBeVisible();
 
     // Sign in with the new account
     await page.getByRole('button', { name: 'Go to sign in' }).click();
-    await page.waitForLoadState('networkidle');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('navigation', { name: 'Main navigation' }).first()).toBeVisible();
+    await login(page, base, email, password);
     await expect(page.getByText('Browser Signup').first()).toBeVisible();
   });
 }

@@ -32,6 +32,7 @@ export const PERMISSIONS = {
   'integrations.manage': 'Manage the attendance application connection, its API keys and received attendance',
   'attendance.view': 'View employee daily attendance records',
   'attendance.manage': 'Create, edit and remove employee daily attendance records',
+  'attendance.location.view': 'View employee attendance locations captured with their consent',
   'workforce.view': 'View employee assignments and submissions',
   'workforce.manage': 'Create and manage employee assignments',
   'workforce.submit': 'View and submit work assigned to the linked employee',
@@ -39,6 +40,9 @@ export const PERMISSIONS = {
   'calendar.view': 'View general and employee-specific calendar events',
   'calendar.manage': 'Create, edit and cancel calendar events',
   'notifications.view': 'View and manage notifications for the linked employee',
+  'clients.view': 'View client profiles and availability',
+  'clients.manage': 'Create and manage client profiles and private documents',
+  'clients.sensitive.view': 'View sensitive client identity and MOU documents',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

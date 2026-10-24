@@ -23,8 +23,11 @@ import { registerSelfServiceRoutes } from './self-service/routes';
 import { registerStatutoryRoutes } from './statutory/routes';
 import { registerBankRoutes } from './bank/routes';
 import { registerAttendanceRoutes } from './attendance/routes';
+import { registerAttendanceSessionRoutes } from './attendance/sessions';
 import { registerWorkforceRoutes } from './workforce/routes';
 import { registerCalendarNotificationRoutes } from './calendar/routes';
+import { registerEmployeeWorkforceDetailsRoutes } from './workforce/details';
+import { registerClientRoutes } from './clients/routes';
 
 export const logger = createLogger('payroll-api', config.LOG_LEVEL);
 
@@ -86,7 +89,10 @@ export function createApp() {
       registerStatutoryRoutes(r);
       registerBankRoutes(r);
       registerAttendanceRoutes(r);
+      registerAttendanceSessionRoutes(r);
       registerWorkforceRoutes(r);
+      registerEmployeeWorkforceDetailsRoutes(r);
+      registerClientRoutes(r);
       registerCalendarNotificationRoutes(r);
     },
     meExtras: async (userId) => ({

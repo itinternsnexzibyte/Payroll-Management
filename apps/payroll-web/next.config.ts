@@ -19,7 +19,7 @@ const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'same-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
   ...(process.env.NODE_ENV === 'production'
     ? [
         { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
@@ -33,8 +33,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Allows a second instance (e.g. E2E tests) to run alongside the dev server.
-  distDir: process.env.NEXT_DIST_DIR ?? '.next',
+  // Keep production builds separate so building while the local dev server is running
+  // cannot overwrite its webpack manifest and chunks.
+  distDir: process.env.NEXT_DIST_DIR ?? (process.env.NODE_ENV === 'production' ? '.next-build' : '.next'),
   poweredByHeader: false,
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../../'),

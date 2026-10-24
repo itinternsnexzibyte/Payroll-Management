@@ -26,8 +26,10 @@ import {
   put,
   useAuth,
   useToast,
+  type Page,
 } from '@nexzi/ui';
 import { useInputDefinitions } from '@/lib/hooks';
+import type { Employee } from '@/lib/types';
 
 interface SyncSettings {
   enabled: boolean;
@@ -284,25 +286,43 @@ function BatchDialog({ id, onClose }: { id: string; onClose: () => void }) {
 }
 
 function ApiHelp() {
-  const origin = typeof window !== 'undefined' ? window.location.origin.replace(':3001', ':4001') : '';
-  const sample = `POST ${origin}/integrations/attendance
-Authorization: Bearer <API key>
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001';
+  const employees = useQuery({
+    queryKey: ['attendance-sync', 'sample-employees'],
+    queryFn: () => get<Page<Employee>>('/employees?status=ACTIVE&pageSize=100&sortBy=employeeCode&sortDir=asc'),
+  });
+  const [employeeCode, setEmployeeCode] = useState('');
+  const availableEmployees = employees.data?.items ?? [];
+  const selectedCode = availableEmployees.some((employee) => employee.employeeCode === employeeCode)
+    ? employeeCode
+    : availableEmployees[0]?.employeeCode ?? '';
+  const sample = selectedCode ? `POST ${origin}/api/integrations/attendance
+Authorization: Bearer YOUR_ATTENDANCE_API_KEY
 Content-Type: application/json
 
-{
-  "batchId": "2026-10-run-1",
-  "year": 2026,
-  "month": 10,
-  "records": [
-    { "employeeCode": "E-001", "values": { "present_days": 22, "lop_days": 1 } }
-  ]
-}`;
+${JSON.stringify({
+  batchId: '2026-10-run-1',
+  year: 2026,
+  month: 10,
+  records: [{ employeeCode: selectedCode, values: { present_days: 22, lop_days: 1 } }],
+}, null, 2)}` : null;
   return (
     <Card title="For the attendance application's developers">
       <p className="mb-3 text-sm text-muted">
-        Send one request per payroll month (up to 5,000 employees). Repeating a <code>batchId</code> is safe: it is accepted once. Responses: 202 received, 401 bad or revoked key, 409 sync switched off, 400 invalid body. Full schema in the API documentation at <code>/docs</code> (Integrations).
+        Send one request per payroll month (up to 5,000 employees) to the URL shown below. Locally, the Payroll web app on port 3001 proxies this path to the API. The example uses a real active employee from this Payroll account; choose a different employee if needed. Received monthly values go to payroll input columns; they do not create daily attendance records. Repeating a <code>batchId</code> is safe: it is accepted once. Responses: 202 received, 401 bad or revoked key, 409 sync switched off, 400 invalid body. Full schema in the API documentation at <code>/docs</code> (Integrations).
       </p>
-      <pre className="overflow-x-auto rounded-lg bg-ink p-4 text-xs text-white">{sample}</pre>
+      {employees.isLoading ? <Spinner /> : employees.error ? <ErrorState message={errorMessage(employees.error)} onRetry={() => employees.refetch()} /> : availableEmployees.length === 0 ? (
+        <Alert tone="warning">Add an active employee in Payroll first. The request example will then use that employee's real employee code.</Alert>
+      ) : (
+        <>
+          <Field label="Example employee" htmlFor="attendance-example-employee">
+            <Select id="attendance-example-employee" value={selectedCode} onChange={(event) => setEmployeeCode(event.target.value)}>
+              {availableEmployees.map((employee) => <option key={employee.id} value={employee.employeeCode}>{employee.employeeCode} — {employee.fullName}</option>)}
+            </Select>
+          </Field>
+          <pre className="mt-3 overflow-x-auto rounded-lg bg-ink p-4 text-xs text-white">{sample}</pre>
+        </>
+      )}
     </Card>
   );
 }

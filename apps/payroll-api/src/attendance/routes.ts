@@ -169,6 +169,9 @@ export function registerAttendanceRoutes(r: ApiRegistry) {
       if (!employee) throw notFound('Employee');
       const where = { employeeId_attendanceDate: { employeeId: body.employeeId, attendanceDate: body.attendanceDate } };
       const before = await prisma.attendanceRecord.findUnique({ where });
+      if (before && await prisma.attendanceWorkSession.count({ where: { attendanceRecordId: before.id } })) {
+        throw new AppError('INVALID_STATE', 'Session-tracked attendance cannot be replaced through manual entry.');
+      }
       const record = await prisma.attendanceRecord.upsert({
         where,
         create: { ...body, workingMinutes: body.workingMinutes ?? null, createdById: user.id, updatedById: user.id },
@@ -199,6 +202,9 @@ export function registerAttendanceRoutes(r: ApiRegistry) {
     handler: async ({ params, body, user, ip }) => {
       const before = await prisma.attendanceRecord.findUnique({ where: { id: params.id } });
       if (!before) throw notFound('Attendance record');
+      if (await prisma.attendanceWorkSession.count({ where: { attendanceRecordId: before.id } })) {
+        throw new AppError('INVALID_STATE', 'Session-tracked attendance cannot be edited through manual entry.');
+      }
       const employee = await prisma.employee.findUnique({ where: { id: body.employeeId }, select: { id: true, employeeCode: true } });
       if (!employee) throw notFound('Employee');
       let record: AttendanceRecordRow;
@@ -237,6 +243,9 @@ export function registerAttendanceRoutes(r: ApiRegistry) {
     handler: async ({ params, user, ip }) => {
       const record = await prisma.attendanceRecord.findUnique({ where: { id: params.id }, include: { employee: { select: { employeeCode: true } } } });
       if (!record) throw notFound('Attendance record');
+      if (await prisma.attendanceWorkSession.count({ where: { attendanceRecordId: record.id, endedAt: null } })) {
+        throw new AppError('INVALID_STATE', 'Check out the active attendance session before deleting this record.');
+      }
       await prisma.attendanceRecord.delete({ where: { id: record.id } });
       await audit.write({
         actorId: user.id,

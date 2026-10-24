@@ -35,11 +35,11 @@
   "include": [
     "../../packages/ui/src/**/*.ts",
     "../../packages/ui/src/**/*.tsx",
+    ".next-e2e/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
     "src/**/*.ts",
-    "src/**/*.tsx",
-    ".next-e2e/types/**/*.ts"
+    "src/**/*.tsx"
   ],
   "exclude": [
     "node_modules"

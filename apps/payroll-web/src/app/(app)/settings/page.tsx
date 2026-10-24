@@ -70,6 +70,7 @@ const EMAILS: { key: keyof Settings['emailNotifications']; label: string }[] = [
   { key: 'readyToFinalise', label: 'Email finalisers when payroll is approved' },
   { key: 'payslipsAvailable', label: 'Email employees (with a linked account) when their payslip is available' },
   { key: 'leaveDecisions', label: 'Email employees when their leave request is approved or rejected' },
+  { key: 'attendanceAlerts', label: 'Email attendance administrators and employees about forced check-outs and reactivation decisions' },
 ];
 
 function ModulesForm() {
