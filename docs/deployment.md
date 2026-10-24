@@ -43,6 +43,27 @@ keys. Do not upload or commit a populated `.env` file. Keep payroll rules and pa
 flags `false` until the existing go-live checks are complete. Select an instance plan with persistent
 disk support for the API service.
 
+## Option V — Vercel Services
+
+The repository includes a root [`vercel.json`](../vercel.json) with two application services:
+`payroll-web` serves the public site and `payroll-api` serves `/api/*`. The shared `packages/ui`
+and `packages/server-core` directories are workspace libraries, not independently deployable
+services. Browser API requests use the public `/api/*` route, so there is no server-to-server
+service binding.
+
+Before deploying, configure API environment variables in Vercel: `DATABASE_URL`,
+`ALLOWED_ORIGINS` (the exact HTTPS origin assigned to the Vercel project), `COOKIE_SECURE=true`,
+and a persistent `BANK_DATA_KEY` if bank details are enabled. Configure the required mail settings
+if email is enabled. Run `npm run db:migrate -w @nexzi/payroll-api` once against the production
+database before serving traffic; do not run migrations concurrently from serverless requests.
+Create the first Administrator with the `BOOTSTRAP_ADMIN_*` variables.
+
+Vercel's function filesystem is not durable. The current API stores generated files using local
+`STORAGE_DIR`, and PDF generation requires an installed Chromium executable. Those features need
+durable external file storage and a compatible Chromium runtime before Vercel can provide feature
+parity with the Render/Docker deployment. Do not treat a successful build as production-ready
+until those requirements are addressed and payslip generation and retrieval are tested.
+
 ## Option A — Docker Compose
 
 > The Dockerfiles and compose file have **not yet been built or run**: Docker was not available in

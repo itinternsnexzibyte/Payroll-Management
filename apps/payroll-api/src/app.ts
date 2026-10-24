@@ -5,6 +5,7 @@ import { authStore } from './auth-store';
 import { audit } from './audit';
 import { config, COOKIE_NAME } from './config';
 import { prisma } from './db';
+import { prepareDatabase } from './database-bootstrap';
 import { registerUserRoutes } from './modules/users';
 import { registerMasterRoutes } from './modules/masters';
 import { registerEmployeeRoutes } from './modules/employees';
@@ -57,6 +58,7 @@ export function createApp() {
       'REST API for the NexziByte Payroll Management application. All endpoints except /auth/login, sign-up, /health and /ready require the session cookie, and permissions are enforced on every request. The attendance application sends data to /integrations/attendance with an API key (Authorization: Bearer) instead of a session.',
     logger,
     allowedOrigins: config.ALLOWED_ORIGINS,
+    beforeRequest: process.env.VERCEL ? () => prepareDatabase(logger) : undefined,
     keyAuthPrefixes: ['/integrations/'],
     auth,
     cookieName: COOKIE_NAME,

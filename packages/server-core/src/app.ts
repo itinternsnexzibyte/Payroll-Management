@@ -16,6 +16,8 @@ export interface BaseAppOptions {
   description: string;
   logger: Logger;
   allowedOrigins: string[];
+  /** Runs once before handling a request, for hosts that initialize databases on demand. */
+  beforeRequest?: () => Promise<void>;
   /** Path prefixes of API-key (Authorization: Bearer) endpoints exempt from the Origin check. */
   keyAuthPrefixes?: string[];
   auth: AuthService;
@@ -62,6 +64,15 @@ export function createBaseApp(opts: BaseAppOptions): Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
+  const apiPrefix = opts.publicApiPrefix.replace(/\/+$/, '');
+  if (apiPrefix && apiPrefix !== '/') {
+    app.use((req, _res, next) => {
+      if (req.path === apiPrefix || req.path.startsWith(`${apiPrefix}/`)) {
+        req.url = req.url.slice(apiPrefix.length) || '/';
+      }
+      next();
+    });
+  }
   app.use(httpLogger(opts.logger));
   app.use(
     helmet({
@@ -95,6 +106,13 @@ export function createBaseApp(opts: BaseAppOptions): Express {
       res.status(503).json({ status: 'not_ready' });
     }
   });
+
+  const beforeRequest = opts.beforeRequest;
+  if (beforeRequest) {
+    app.use((_req, _res, next) => {
+      beforeRequest().then(() => next(), next);
+    });
+  }
 
   app.use(originCheck(opts.allowedOrigins, opts.keyAuthPrefixes));
 
