@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { Bell, ChevronsLeft, ChevronsRight, KeyRound, LogOut, Menu, ShieldX, X } from 'lucide-react';
 import { get } from '../lib/api';
 import { cn } from '../lib/format';
@@ -118,6 +118,7 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [navigating, setNavigating] = useState(false);
 
   useEffect(() => {
     try {
@@ -127,6 +128,23 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
     }
   }, []);
   useEffect(() => setMobileOpen(false), [pathname]);
+  useEffect(() => {
+    setNavigating(false);
+  }, [pathname]);
+  useEffect(() => {
+    if (!navigating) return;
+    const timeout = window.setTimeout(() => setNavigating(false), 15_000);
+    return () => window.clearTimeout(timeout);
+  }, [navigating]);
+  const indicateNavigation = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (!(event.target instanceof Element)) return;
+    const anchor = event.target.closest('a[href]');
+    if (!(anchor instanceof HTMLAnchorElement) || anchor.target || anchor.hasAttribute('download')) return;
+    const destination = new URL(anchor.href, window.location.href);
+    if (destination.origin !== window.location.origin || (destination.pathname === pathname && destination.search === window.location.search)) return;
+    setNavigating(true);
+  };
   const toggle = () => {
     setCollapsed((c) => {
       try {
@@ -205,7 +223,12 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
   );
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen" onClickCapture={indicateNavigation}>
+      {navigating && (
+        <div className="fixed inset-x-0 top-0 z-[100] h-1 bg-primary/10" role="progressbar" aria-label="Opening page">
+          <div className="h-full w-1/3 animate-pulse rounded-r-full bg-accent" />
+        </div>
+      )}
       <AmbientBackground />
       <aside className={cn('fx-sidebar no-print fixed inset-y-0 left-0 z-30 hidden transition-[width] duration-300 lg:block', collapsed ? 'w-[68px]' : 'w-64')}>{sidebar}</aside>
       {mobileOpen && (

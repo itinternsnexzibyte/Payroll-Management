@@ -210,6 +210,13 @@ npm run dev:api                               # terminal 1 — http://localhost:
 npm run dev:web                               # terminal 2 — http://localhost:3001
 ```
 
+For faster page-to-page navigation, use the optimized local web server instead of the development server:
+
+```powershell
+# Stop dev:web first, then:
+npm run start:web:local                       # builds optimized assets and serves them on port 3001
+```
+
 </details>
 
 <details>
@@ -223,6 +230,8 @@ npm run prisma:generate && npm run db:migrate && npm run db:seed
 npm run dev:api             # terminal 1
 npm run dev:web             # terminal 2
 ```
+
+For faster page-to-page navigation, stop `dev:web` and run `npm run start:web:local` to build and serve the optimized web app.
 
 </details>
 

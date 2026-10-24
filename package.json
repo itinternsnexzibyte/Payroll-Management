@@ -18,6 +18,7 @@
     "db:seed": "npm run db:seed -w @nexzi/payroll-api",
     "dev:api": "npm run dev -w @nexzi/payroll-api",
     "dev:web": "npm run dev -w @nexzi/payroll-web",
+    "start:web:local": "npm run build -w @nexzi/payroll-web && npm run start -w @nexzi/payroll-web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "npm run test -w @nexzi/server-core && npm run test -w @nexzi/payroll-api",
