@@ -5,13 +5,13 @@
       "root": "apps/payroll-api",
       "framework": "express",
       "entrypoint": "src/vercel.ts",
-      "installCommand": "cd ../.. && npm ci",
+      "installCommand": "cd ../.. && npm ci --include=dev",
       "buildCommand": "cd ../.. && npm run build -w @nexzi/payroll-api"
     },
     "payroll-web": {
       "root": "apps/payroll-web",
       "framework": "nextjs",
-      "installCommand": "cd ../.. && npm ci",
+      "installCommand": "cd ../.. && npm ci --include=dev",
       "buildCommand": "cd ../.. && npm run build -w @nexzi/payroll-web"
     }
   },
