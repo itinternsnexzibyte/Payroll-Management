@@ -60,7 +60,7 @@ Use Payroll's existing modular-monolith architecture as the one application:
 - Existing employee-code uniqueness, employee status, salary-version effective dates, unique
   employee/date attendance, and unique payroll period constraints remain in effect.
 - A daily attendance register entry does not silently become a payroll input. Approved leave,
-  attendance sync, and manually entered payroll inputs retain their existing, explicit workflows.
+  attendance to payroll, and manually entered payroll inputs retain their existing, explicit workflows.
 - Finalized payroll rows and generated historical payslips remain immutable; HR profile, assignment,
   or rating changes cannot rewrite payroll history.
 

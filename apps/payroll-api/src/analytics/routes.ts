@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { AppError, notFound, type ApiRegistry, type AuthUser } from '@nexzi/server-core';
 import { prisma } from '../db';
 import { audit } from '../audit';
-import { getSettings } from '../settings';
+import { getSettings, settingsSchema } from '../settings';
 import { periodLabel, saveInputs, type InputEntry } from '../payroll/service';
 
 const canSeeAmounts = (u: AuthUser) => u.permissions.has('payroll.view_amounts');
@@ -185,11 +185,10 @@ export function registerAnalyticsRoutes(r: ApiRegistry) {
       const members = run
         ? await prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, select: { employeeId: true, employeeCode: true, employeeName: true }, orderBy: { employeeCode: 'asc' } })
         : (await prisma.employee.findMany({ where: { status: 'ACTIVE' }, select: { id: true, employeeCode: true, fullName: true }, orderBy: { employeeCode: 'asc' } })).map((e) => ({ employeeId: e.id, employeeCode: e.employeeCode, employeeName: e.fullName }));
-      const settings = (await getSettings()).attendanceSync;
       return {
         period: periodLabel(query.year, query.month),
         run: run ? { id: run.id, status: run.status } : null,
-        fieldMap: settings.fieldMap,
+        fieldMap: (await getSettings()).attendancePayrollMap,
         rows: members.map((m) => ({ ...m, ...(totals.get(m.employeeId) ?? { present_days: 0, absent_days: 0, leave_days: 0, late_days: 0, worked_hours: 0, overtime_hours: 0 }), hasRecords: totals.has(m.employeeId) })),
       };
     },
@@ -199,15 +198,15 @@ export function registerAnalyticsRoutes(r: ApiRegistry) {
     method: 'post',
     path: '/attendance-records/apply-to-payroll',
     tag: 'Attendance',
-    summary: 'Write the monthly attendance figures into a Draft or Calculated payroll month using the Attendance sync field mapping',
-    permission: 'integrations.manage',
+    summary: 'Write the monthly attendance figures into a Draft or Calculated payroll month using the attendance-to-payroll column mapping',
+    permission: 'payroll.input',
     body: periodQuery,
     handler: async ({ body, user, ip }) => {
-      if (!user.permissions.has('payroll.input')) throw new AppError('FORBIDDEN', 'Applying attendance also needs the Enter monthly inputs permission.');
+      if (!user.permissions.has('attendance.view')) throw new AppError('FORBIDDEN', 'Applying attendance also needs the View attendance permission.');
       const run = await prisma.payrollRun.findUnique({ where: { year_month: { year: body.year, month: body.month } } });
       if (!run) throw notFound('Payroll run');
-      const map = (await getSettings()).attendanceSync.fieldMap;
-      if (!map.length) throw new AppError('INVALID_STATE', 'Map attendance fields (present_days, absent_days, leave_days, late_days, worked_hours, overtime_hours) to input columns in Attendance sync settings first.');
+      const map = (await getSettings()).attendancePayrollMap;
+      if (!map.length) throw new AppError('INVALID_STATE', 'Map the attendance totals to payroll input columns on the Attendance to payroll page first.');
       const totals = await monthlyAttendance(body.year, body.month, body.lateAfter);
       const members = await prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, select: { employeeId: true } });
       const entries: InputEntry[] = [];
@@ -223,6 +222,30 @@ export function registerAnalyticsRoutes(r: ApiRegistry) {
       const result = await saveInputs(user, run.id, entries, ip);
       await audit.write({ actorId: user.id, action: 'attendance.applied_from_register', entity: 'payroll_run', entityId: run.id, metadata: { cells: result.saved, errors: result.errors.length }, ip });
       return { saved: result.saved, errors: result.errors };
+    },
+  });
+
+  r.add({
+    method: 'put',
+    path: '/attendance-records/payroll-mapping',
+    tag: 'Attendance',
+    summary: 'Choose which monthly input column receives each attendance total (present, absent, leave, late days, worked and overtime hours)',
+    permission: 'settings.manage',
+    body: z.object({ fieldMap: settingsSchema.shape.attendancePayrollMap }),
+    handler: async ({ body, user, ip }) => {
+      const numeric = new Set((await prisma.payrollInputDefinition.findMany({ where: { dataType: 'NUMBER' }, select: { key: true } })).map((d) => d.key));
+      const fields = body.fieldMap.flatMap((f, i) => (numeric.has(f.inputKey) ? [] : [{ path: `fieldMap.${i}.inputKey`, message: `Unknown or non-numeric input column ${f.inputKey}.` }]));
+      const sources = body.fieldMap.map((f) => f.source);
+      if (new Set(sources).size !== sources.length) fields.push({ path: 'fieldMap', message: 'Each attendance total can be mapped once.' });
+      if (fields.length) throw new AppError('VALIDATION_ERROR', fields.map((f) => f.message).join(' '), { fields });
+      const before = (await getSettings()).attendancePayrollMap;
+      await prisma.payrollSetting.upsert({
+        where: { key: 'attendancePayrollMap' },
+        create: { key: 'attendancePayrollMap', value: body.fieldMap, updatedById: user.id },
+        update: { value: body.fieldMap, updatedById: user.id },
+      });
+      await audit.write({ actorId: user.id, action: 'attendance.payroll_mapping_updated', entity: 'payroll_settings', entityId: null, before, after: body.fieldMap, ip });
+      return { fieldMap: body.fieldMap };
     },
   });
 }

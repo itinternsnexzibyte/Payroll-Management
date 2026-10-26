@@ -51,19 +51,20 @@ export function createApp() {
     requireApproval: config.SIGNUP_REQUIRE_APPROVAL,
     allowedDomains: config.SIGNUP_ALLOWED_DOMAINS,
     adminSignup: config.ADMIN_SIGNUP,
-    // Self-registered accounts get the Payroll User role; Administrator requests wait for approval.
-    roles: { user: 'PAYROLL_USER', admin: 'ADMIN' },
+    // Self-registered accounts get the Employee (self-service) role, so they see only their own
+    // records once an administrator links them to an employee. Staff are promoted to Payroll User
+    // in Users. Administrator requests wait for approval.
+    roles: { user: 'EMPLOYEE', admin: 'ADMIN' },
   };
   const signup = new SignupService(signupStore, mailer, audit, signupConfig);
   return createBaseApp({
     name: 'Payroll Management',
     version: '0.1.0',
     description:
-      'REST API for the NexziByte Payroll Management application. All endpoints except /auth/login, sign-up, /health and /ready require the session cookie, and permissions are enforced on every request. The attendance application sends data to /integrations/attendance with an API key (Authorization: Bearer) instead of a session.',
+      'REST API for the NexziByte Payroll Management application. All endpoints except /auth/login, sign-up, /health and /ready require the session cookie, and permissions are enforced on every request.',
     logger,
     allowedOrigins: config.ALLOWED_ORIGINS,
     beforeRequest: process.env.VERCEL ? () => prepareDatabase(logger) : undefined,
-    keyAuthPrefixes: ['/integrations/'],
     auth,
     cookieName: COOKIE_NAME,
     publicApiPrefix: config.PUBLIC_API_PREFIX,

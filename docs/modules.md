@@ -29,7 +29,7 @@ Status of the module list (12 core, 10 advanced) against this repository, 24 Oct
 | Loan & salary advance | ✅ **Added** | One active loan/advance per employee with a monthly instalment. Instalments fill the mapped input; recovered and outstanding amounts are read from finalised payroll months |
 | Bonus & incentives | ✅ **Added** | Amounts per employee and month, proposed and approved by different people; approved amounts fill the mapped inputs. Incentive *formulas* are the client's and are not calculated here |
 | Email notifications | ✅ **Added** | Approvers on submission, finalisers on approval, employees when their payslip is available and when leave is decided. Each can be switched off; emails never contain amounts |
-| Attendance integration | ✅ **Daily register + file import + live sync added** | The source attendance app's admin daily-register workflow is adapted to Payroll's own employees, permissions, audit log, and database. It does not import the source app's separate MySQL/auth stack or GPS/session tracking. Daily records do not alter payroll inputs automatically. Attendance files import through the monthly input import. **Live sync:** the attendance application sends each month to `POST /integrations/attendance` with an API key; fields are mapped to input columns, reviewed and applied (or applied automatically) to Draft/Calculated payroll only |
+| Attendance integration | ✅ **Daily register + file import added** | The source attendance app's admin daily-register workflow is adapted to Payroll's own employees, permissions, audit log, and database. It does not import the source app's separate MySQL/auth stack or GPS/session tracking. Daily records do not alter payroll inputs automatically. Attendance files import through the monthly input import. **Attendance to payroll** writes a month's totals into the input columns chosen on that page (Draft/Calculated payroll only). The live sync API from the attendance application was removed |
 | Workforce assignments | ✅ **Added** | Assignments link to canonical employee UUIDs; employees submit text or HTTPS links, managers can review submissions, and requested changes retain revision history. Access uses dedicated Workforce permissions and audit records. No source submissions/files are imported; no payroll inputs are changed |
 | Calendar & in-app notifications | ✅ **Added** | Shared or employee-specific events, date/time/color, scoped employee views, and read/unread notifications for calendar and assignment updates. Notifications are tied to Payroll employee UUIDs; no HR source records are imported |
 | Bank salary export | ✅ **Added** | Payroll → Bank salary payments. Employee bank details stored encrypted (masked everywhere) with `BANK_DATA_KEY` or a server-generated key on the storage disk; employees can add their own under My account, configurable CSV/XLSX file layout, file for finalised payroll only, missing details listed, every file recorded. Set the layout to your bank's format before the first upload |
@@ -45,9 +45,9 @@ components that use those input columns decide how they affect pay.
 ## Permissions added
 
 `leave.view`, `leave.manage`, `leave.approve`, `loans.manage`, `bonuses.manage`, `self.service`,
-`bank.view`, `bank.manage`, `bank.export`, `integrations.manage`, `workforce.view`,
+`bank.view`, `bank.manage`, `bank.export`, `workforce.view`,
 `workforce.manage`, `workforce.submit`, `workforce.review`, `calendar.view`, `calendar.manage`,
-`notifications.view` (bank, integration, Workforce management/review, and calendar management
+`notifications.view` (bank, Workforce management/review, and calendar management
 permissions are granted deliberately).
 Administrators receive new permissions automatically. **Existing** roles are never changed
 automatically: grant the new permissions to the Payroll User role in Roles & permissions if

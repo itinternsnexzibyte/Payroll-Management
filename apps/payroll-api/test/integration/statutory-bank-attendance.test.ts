@@ -1,13 +1,13 @@
 /**
- * Statutory payroll (PF, ESI, TDS), employee bank details with the bank salary file, and live
- * attendance sync. Rates used here are test fixtures only — the application ships with none.
+ * Statutory payroll (PF, ESI, TDS) and employee bank details with the bank salary file. Rates
+ * used here are test fixtures only — the application ships with none.
  */
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import request, { type Agent } from 'supertest';
+import type { Agent } from 'supertest';
 import { prisma, Prisma } from '../../src/db';
 import { setBankKeyForTests } from '../../src/bank/crypto';
-import { app, login, ORIGIN, PASSWORD, resetDb, seedMasters } from '../helpers';
+import { login, ORIGIN, PASSWORD, resetDb, seedMasters } from '../helpers';
 import { createUser } from '../../src/bootstrap';
 
 let admin: Agent;
@@ -15,7 +15,6 @@ let user: Agent;
 let m: Awaited<ReturnType<typeof seedMasters>>;
 const emp: Record<string, string> = {};
 let aprilRun: string;
-let mayRun: string;
 
 const post = (a: Agent, path: string, body?: object) => a.post(path).set('Origin', ORIGIN).send(body ?? {});
 const put = (a: Agent, path: string, body: object) => a.put(path).set('Origin', ORIGIN).send(body);
@@ -40,7 +39,7 @@ const statutory = {
 beforeAll(async () => {
   await resetDb();
   m = await seedMasters();
-  for (const key of ['TDS_OVERRIDE', 'DAYS_WORKED']) await prisma.payrollInputDefinition.create({ data: { key, label: key, dataType: 'NUMBER', minValue: new Prisma.Decimal(0) } });
+  await prisma.payrollInputDefinition.create({ data: { key: 'TDS_OVERRIDE', label: 'TDS_OVERRIDE', dataType: 'NUMBER', minValue: new Prisma.Decimal(0) } });
   admin = await login('admin@test.local');
   user = await login('user@test.local');
   for (const [key, code, name, basic] of [['a', 'E-1', 'Asha Rao', '20000'], ['b', 'E-2', 'Vikram Singh', '100000']]) {
@@ -210,70 +209,5 @@ describe('bank details and bank salary file', () => {
     const res = await admin.get(`/payroll-runs/${aprilRun}/bank-export?paymentDate=2026-04-30&skipMissing=true`);
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/spreadsheetml/);
-  });
-});
-
-describe('live attendance sync', () => {
-  let key: string;
-  let keyId: string;
-  const push = (body: object, token = key) => request(app).post('/integrations/attendance').set('Authorization', `Bearer ${token}`).send(body);
-
-  it('issues API keys shown once and stores only a hash', async () => {
-    expect((await post(user, '/attendance-sync/keys', { name: 'x' })).status).toBe(403);
-    const res = await post(admin, '/attendance-sync/keys', { name: 'Attendance app' });
-    expect(res.status).toBe(201);
-    key = res.body.key;
-    keyId = res.body.id;
-    expect(key).toMatch(/^nzatt_[0-9a-f]{8}\./);
-    const row = await prisma.integrationKey.findUniqueOrThrow({ where: { id: keyId } });
-    expect(row.keyHash).not.toContain(key);
-    expect((await admin.get('/attendance-sync')).body.keys[0]).not.toHaveProperty('key');
-  });
-
-  it('rejects unknown keys, a switched-off sync, and cookie requests without an origin', async () => {
-    mayRun = (await post(admin, '/payroll-runs', { year: 2026, month: 5 })).body.id;
-    const body = { year: 2026, month: 5, records: [{ employeeCode: 'E-1', values: { present_days: 22 } }] };
-    expect((await push(body, 'nzatt_00000000.wrong')).status).toBe(401);
-    expect((await push(body)).status).toBe(409);
-    expect((await admin.post('/integrations/attendance').send(body)).status).toBe(403);
-  });
-
-  it('validates the field mapping', async () => {
-    expect((await put(admin, '/attendance-sync/settings', { enabled: true, autoApply: false, fieldMap: [{ source: 'present_days', inputKey: 'NOPE' }] })).status).toBe(400);
-    expect((await put(admin, '/attendance-sync/settings', { enabled: true, autoApply: false, fieldMap: [{ source: 'present_days', inputKey: 'DAYS_WORKED' }] })).status).toBe(200);
-  });
-
-  it('receives a batch once, previews it and applies it through input validation', async () => {
-    const body = { batchId: 'may-1', year: 2026, month: 5, records: [{ employeeCode: 'E-1', values: { present_days: 22, late_marks: 1 } }, { employeeCode: 'E-404', values: { present_days: 20 } }] };
-    const first = await push(body);
-    expect(first.status).toBe(202);
-    expect(first.body).toMatchObject({ duplicate: false, batch: { status: 'RECEIVED', recordCount: 2 } });
-    expect((await push(body)).body).toMatchObject({ duplicate: true, batch: { id: first.body.batch.id } });
-
-    const preview = await admin.get(`/attendance-sync/batches/${first.body.batch.id}`);
-    expect(preview.body.preview).toMatchObject({ writes: [{ inputKey: 'DAYS_WORKED', value: '22' }], problems: [{ employeeCode: 'E-404' }], unmappedFields: ['late_marks'] });
-    expect(await prisma.payrollInput.count({ where: { payrollRunId: mayRun } })).toBe(0);
-
-    const applied = await post(admin, `/attendance-sync/batches/${first.body.batch.id}/apply`);
-    expect(applied.body).toMatchObject({ status: 'PARTIAL', saved: 1 });
-    expect((await prisma.payrollInput.findFirstOrThrow({ where: { payrollRunId: mayRun, employeeId: emp.a, inputKey: 'DAYS_WORKED' } })).value).toBe('22');
-    // A partly applied batch can be retried (e.g. after adding the missing employee).
-    expect((await post(admin, `/attendance-sync/batches/${first.body.batch.id}/apply`)).body).toMatchObject({ status: 'PARTIAL' });
-  });
-
-  it('auto-applies when switched on, but never to finalised payroll', async () => {
-    await put(admin, '/attendance-sync/settings', { enabled: true, autoApply: true, fieldMap: [{ source: 'present_days', inputKey: 'DAYS_WORKED' }] });
-    const ok = await push({ year: 2026, month: 5, records: [{ employeeCode: 'E-2', values: { present_days: '-3' } }, { employeeCode: 'E-1', values: { present_days: 21 } }] });
-    expect(ok.body.batch).toMatchObject({ status: 'PARTIAL', appliedCount: 1 });
-    expect(ok.body.batch.errors[0]).toMatchObject({ employeeCode: 'E-2', field: 'DAYS_WORKED' });
-    const locked = await push({ year: 2026, month: 4, records: [{ employeeCode: 'E-1', values: { present_days: 20 } }] });
-    expect(locked.body.batch.status).toBe('RECEIVED');
-    expect(locked.body.batch.errors[0].message).toMatch(/finalised/);
-    expect(await prisma.payrollInput.count({ where: { payrollRunId: aprilRun, inputKey: 'DAYS_WORKED' } })).toBe(0);
-  });
-
-  it('stops accepting a revoked key', async () => {
-    expect((await post(admin, `/attendance-sync/keys/${keyId}/revoke`)).status).toBe(200);
-    expect((await push({ year: 2026, month: 5, records: [{ employeeCode: 'E-1', values: { present_days: 1 } }] })).status).toBe(401);
   });
 });
