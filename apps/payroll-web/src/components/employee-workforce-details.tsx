@@ -144,7 +144,7 @@ export function EmployeeRatingsTab({ employeeId, canManage }: { employeeId: stri
   );
 }
 
-export function EmployeeDocumentsTab({ employeeId, canManage, canUploadProfilePhoto = false }: { employeeId: string; canManage: boolean; canUploadProfilePhoto?: boolean }) {
+export function EmployeeDocumentsTab({ employeeId, canManage }: { employeeId: string; canManage: boolean }) {
   const toast = useToast();
   const qc = useQueryClient();
   const [category, setCategory] = useState<EmployeeDocument['category']>('OFFER_LETTER');
@@ -154,7 +154,7 @@ export function EmployeeDocumentsTab({ employeeId, canManage, canUploadProfilePh
     mutationFn: () => {
       if (!file) throw new Error('Choose a file to upload.');
       const form = new FormData();
-      form.set('category', canManage ? category : 'PROFILE_PHOTO');
+      form.set('category', category);
       form.set('file', file);
       return post<EmployeeDocument>(`/employees/${employeeId}/documents`, form);
     },
@@ -177,14 +177,14 @@ export function EmployeeDocumentsTab({ employeeId, canManage, canUploadProfilePh
   });
   return (
     <div className="space-y-5">
-      {(canManage || canUploadProfilePhoto) && (
+      {canManage && (
         <Card title="Upload a private document">
           <p className="mb-4 text-sm text-muted">PDF, PNG, JPEG and WebP files up to 5 MB are stored outside the public web directory.</p>
           <div className="grid gap-4 sm:grid-cols-2">
-            {canManage ? <Field label="Document type"><Select value={category} onChange={(event) => setCategory(event.target.value as EmployeeDocument['category'])}>
+            <Field label="Document type"><Select value={category} onChange={(event) => setCategory(event.target.value as EmployeeDocument['category'])}>
               <option value="OFFER_LETTER">Offer letter</option><option value="PROFILE_PHOTO">Profile photo</option><option value="OTHER">Other</option>
-            </Select></Field> : <p className="self-center text-sm text-muted">You may upload or replace your own profile photo.</p>}
-            <Field label="File"><Input type="file" accept={canManage ? '.pdf,.png,.jpg,.jpeg,.webp' : 'image/png,image/jpeg,image/webp'} onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></Field>
+            </Select></Field>
+            <Field label="File"><Input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></Field>
           </div>
           <div className="mt-4 flex justify-end"><Button disabled={!file} loading={upload.isPending} onClick={() => upload.mutate()}>Upload</Button></div>
         </Card>

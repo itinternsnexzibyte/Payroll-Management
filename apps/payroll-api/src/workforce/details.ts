@@ -184,17 +184,14 @@ export function registerEmployeeWorkforceDetailsRoutes(r: ApiRegistry) {
     method: 'post',
     path: '/employees/:id/documents',
     tag: 'Workforce',
-    summary: 'Upload a private employee document or profile photo',
-    permission: ['employees.manage', 'self.service'],
+    summary: 'Upload a private employee document or profile photo (payroll team only)',
+    permission: 'employees.manage',
     params: employeeParam,
     body: documentBody,
     upload: { field: 'file', maxBytes: maxDocumentBytes, extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp'] },
     status: 201,
     handler: async ({ params, body, user, ip, file }) => {
       if (!(await prisma.employee.findUnique({ where: { id: params.id }, select: { id: true } }))) throw notFound('Employee');
-      if (!user.permissions.has('employees.manage') && (body.category !== 'PROFILE_PHOTO' || !(await canAccessEmployee(user, params.id)))) {
-        throw new AppError('FORBIDDEN', 'Employees can upload only their own profile photo.');
-      }
       if (!file || file.size > maxDocumentBytes) throw new AppError('PAYLOAD_TOO_LARGE', 'The document exceeds the 5 MB limit.');
       const extension = path.extname(file.originalName).slice(1).toLowerCase();
       const actualType = actualFileType(file.buffer, extension);

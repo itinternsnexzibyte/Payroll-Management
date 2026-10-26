@@ -78,8 +78,9 @@ These are new permissions. Administrators get them automatically; no other role 
 
 - **Encryption:**
   - Account numbers are encrypted with AES-256-GCM using `BANK_DATA_KEY`, a 32-byte key in base64 set in the API's environment.
-  - Without the key, bank details and the bank file are switched off.
-  - **Keep a secure backup of the key.** If it is lost, the stored numbers cannot be read, and every account has to be entered again.
+  - If `BANK_DATA_KEY` is not set, the API generates a key once and keeps it in `STORAGE_DIR/keys/bank-data.key` (owner-only), on the persistent storage disk rather than in the database. Bank details are switched off only if neither is available.
+  - **Keep a secure backup of the key** (the environment value, or the key file with the storage disk). If it is lost, the stored numbers cannot be read, and every account has to be entered again.
+- **Employees can enter their own account** on the **My account** page, under *Bank details* (`self.service`). It is saved the same way and appears on the Bank page with an *Added by employee* badge.
 - **Never in full on screen or in an API response.** Only the last four digits are returned. Replacing an account means typing the number again, twice; pasting into the second box is blocked.
 - **Never in logs or the audit trail.** Request bodies are not logged. Audit entries record the holder, the last four digits and the IFSC, and audit redaction also removes any `accountNumber` field.
 - **In full only in the bank file.** That file is sent with `Cache-Control: no-store` and is not kept on the server.

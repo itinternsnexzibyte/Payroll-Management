@@ -125,6 +125,8 @@
 | Self-service | `GET` | `/me/leave` | My leave requests and balances | self.service |
 | Self-service | `POST` | `/me/leave` | Request leave for myself | self.service |
 | Self-service | `POST` | `/me/leave/{id}/cancel` | Cancel one of my pending leave requests | self.service |
+| Self-service | `GET` | `/me/bank` | My salary bank account (account number masked) | self.service |
+| Self-service | `PUT` | `/me/bank` | Add or replace my salary bank account (account number stored encrypted; the payroll team sees it masked) | self.service |
 | Statutory | `GET` | `/statutory` | Statutory settings (PF, ESI, TDS), completeness problems and the components that use them | settings.manage, payroll.view |
 | Statutory | `PUT` | `/statutory` | Save the statutory settings; a section can be switched on only when complete and confirmed | settings.manage |
 | Statutory | `POST` | `/statutory/components` | Create the deduction component for PF, ESI or TDS (if it does not exist yet) | settings.manage |

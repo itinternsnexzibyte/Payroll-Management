@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { AppError, Dec, XLSX_MIME, attachment, dec, idParam, money, notFound, type ApiRegistry } from '@nexzi/server-core';
+import { AppError, Dec, XLSX_MIME, attachment, dec, idParam, money, notFound, type ApiRegistry, type AuthUser } from '@nexzi/server-core';
 import { prisma } from '../db';
 import { audit } from '../audit';
 import { getSettings, settingsSchema } from '../settings';
@@ -8,7 +8,7 @@ import { periodLabel } from '../payroll/service';
 import { bankKeyConfigured, decryptAccount, encryptAccount, maskAccount } from './crypto';
 import { buildBankFile, type BankRow } from './file';
 
-const bankBody = z.object({
+export const bankBody = z.object({
   accountHolder: z.string().trim().min(1).max(100),
   accountNumber: z
     .string()
@@ -26,11 +26,29 @@ const bankBody = z.object({
 
 type AccountRow = { accountHolder: string; accountLast4: string; ifsc: string; bankName: string | null; branch: string | null; updatedAt: Date };
 /** Only the masked form ever leaves the server, except inside the bank file. */
-const serialize = (a: AccountRow | null) =>
+export const serializeBank = (a: AccountRow | null) =>
   a && { accountHolder: a.accountHolder, accountNumberMasked: maskAccount(a.accountLast4), ifsc: a.ifsc, bankName: a.bankName, branch: a.branch, updatedAt: a.updatedAt };
 
 /** What the audit trail records: never the account number, only its last four digits. */
 const auditView = (a: AccountRow | null) => a && { accountHolder: a.accountHolder, accountEnding: a.accountLast4, ifsc: a.ifsc, bankName: a.bankName, branch: a.branch };
+
+/** Adds or replaces an employee's account. Used by the payroll team and by employee self-service. */
+export async function saveBankAccount(employeeId: string, body: z.infer<typeof bankBody>, user: AuthUser, ip: string | null) {
+  const existing = await prisma.employeeBankAccount.findUnique({ where: { employeeId } });
+  const data = {
+    accountHolder: body.accountHolder,
+    accountNumberEnc: encryptAccount(body.accountNumber),
+    accountLast4: body.accountNumber.slice(-4),
+    ifsc: body.ifsc,
+    bankName: body.bankName ?? null,
+    branch: body.branch ?? null,
+    updatedById: user.id,
+  };
+  const saved = await prisma.employeeBankAccount.upsert({ where: { employeeId }, create: { employeeId, ...data }, update: data });
+  // The audit trail records the masked form only.
+  await audit.write({ actorId: user.id, action: existing ? 'bank_account.updated' : 'bank_account.created', entity: 'employee', entityId: employeeId, before: auditView(existing), after: auditView(saved), ip });
+  return saved;
+}
 
 /** Rows for the bank file plus the employees that cannot be paid by it. */
 async function exportPlan(runId: string) {
@@ -55,10 +73,21 @@ export function registerBankRoutes(r: ApiRegistry) {
     summary: 'Bank details of all employees (account numbers masked)',
     permission: ['bank.view', 'bank.manage'],
     handler: async () => {
-      const employees = await prisma.employee.findMany({ include: { bankAccount: true }, orderBy: { employeeCode: 'asc' } });
+      const [employees, linked] = await Promise.all([
+        prisma.employee.findMany({ include: { bankAccount: true }, orderBy: { employeeCode: 'asc' } }),
+        prisma.user.findMany({ where: { employeeId: { not: null } }, select: { id: true, employeeId: true } }),
+      ]);
+      // The employee's own account last saved the details (entered through self-service).
+      const accountOf = new Map(linked.map((u) => [u.employeeId, u.id]));
       return {
         keyConfigured: bankKeyConfigured(),
-        items: employees.map((e) => ({ employeeId: e.id, employeeCode: e.employeeCode, fullName: e.fullName, status: e.status, bank: serialize(e.bankAccount) })),
+        items: employees.map((e) => ({
+          employeeId: e.id,
+          employeeCode: e.employeeCode,
+          fullName: e.fullName,
+          status: e.status,
+          bank: e.bankAccount && { ...serializeBank(e.bankAccount), enteredByEmployee: e.bankAccount.updatedById !== null && e.bankAccount.updatedById === accountOf.get(e.id) },
+        })),
       };
     },
   });
@@ -73,7 +102,7 @@ export function registerBankRoutes(r: ApiRegistry) {
     handler: async ({ params }) => {
       const emp = await prisma.employee.findUnique({ where: { id: params.id }, include: { bankAccount: true } });
       if (!emp) throw notFound('Employee');
-      return { keyConfigured: bankKeyConfigured(), bank: serialize(emp.bankAccount) };
+      return { keyConfigured: bankKeyConfigured(), bank: serializeBank(emp.bankAccount) };
     },
   });
 
@@ -86,21 +115,9 @@ export function registerBankRoutes(r: ApiRegistry) {
     params: idParam,
     body: bankBody,
     handler: async ({ params, body, user, ip }) => {
-      const emp = await prisma.employee.findUnique({ where: { id: params.id }, include: { bankAccount: true } });
+      const emp = await prisma.employee.findUnique({ where: { id: params.id } });
       if (!emp) throw notFound('Employee');
-      const data = {
-        accountHolder: body.accountHolder,
-        accountNumberEnc: encryptAccount(body.accountNumber),
-        accountLast4: body.accountNumber.slice(-4),
-        ifsc: body.ifsc,
-        bankName: body.bankName ?? null,
-        branch: body.branch ?? null,
-        updatedById: user.id,
-      };
-      const saved = await prisma.employeeBankAccount.upsert({ where: { employeeId: emp.id }, create: { employeeId: emp.id, ...data }, update: data });
-      // The audit trail records the masked form only.
-      await audit.write({ actorId: user.id, action: emp.bankAccount ? 'bank_account.updated' : 'bank_account.created', entity: 'employee', entityId: emp.id, before: auditView(emp.bankAccount), after: auditView(saved), ip });
-      return { keyConfigured: true, bank: serialize(saved) };
+      return { keyConfigured: true, bank: serializeBank(await saveBankAccount(emp.id, body, user, ip)) };
     },
   });
 

@@ -43,6 +43,7 @@ interface Bank {
   bankName: string | null;
   branch: string | null;
   updatedAt: string;
+  enteredByEmployee?: boolean;
 }
 interface AccountRow {
   employeeId: string;
@@ -121,11 +122,6 @@ function Accounts() {
   const missing = q.data.items.filter((r) => r.status === 'ACTIVE' && !r.bank).length;
   return (
     <>
-      {!q.data.keyConfigured && (
-        <Alert tone="warning" title="Bank details are switched off" className="mb-4">
-          The server has no encryption key (BANK_DATA_KEY), so bank details cannot be added and the bank file cannot be generated. An administrator sets it in the API&apos;s environment.
-        </Alert>
-      )}
       {missing > 0 && <Alert tone="info" className="mb-4">{missing} active employee(s) have no bank details yet.</Alert>}
       <Card padded={false}>
         <Toolbar>
@@ -137,7 +133,7 @@ function Accounts() {
           empty={<EmptyState icon={<Banknote className="h-6 w-6" />} title="No employees" />}
           columns={[
             { key: 'e', header: 'Employee', render: (r) => (<><span className="block font-medium text-ink">{r.employeeCode}</span><span className="text-xs text-muted">{r.fullName}{r.status !== 'ACTIVE' ? ' · inactive' : ''}</span></>) },
-            { key: 'h', header: 'Account holder', render: (r) => r.bank?.accountHolder ?? <Badge tone="warning">Not added</Badge> },
+            { key: 'h', header: 'Account holder', render: (r) => (r.bank ? (<><span className="block">{r.bank.accountHolder}</span>{r.bank.enteredByEmployee && <Badge tone="info">Added by employee</Badge>}</>) : <Badge tone="warning">Not added</Badge>) },
             { key: 'n', header: 'Account', render: (r) => (r.bank ? <span className="inline-flex items-center gap-1 font-mono"><Lock className="h-3 w-3 text-muted" />{r.bank.accountNumberMasked}</span> : '—') },
             { key: 'i', header: 'IFSC', render: (r) => r.bank?.ifsc ?? '—' },
             { key: 'b', header: 'Bank', render: (r) => (r.bank ? [r.bank.bankName, r.bank.branch].filter(Boolean).join(', ') || '—' : '—') },

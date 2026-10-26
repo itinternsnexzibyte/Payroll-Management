@@ -1,12 +1,13 @@
 'use client';
 import { Suspense } from 'react';
-import { ArrowLeftRight, Banknote, BarChart3, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardList, FileSpreadsheet, FileText, Gift, HandCoins, Landmark, LayoutDashboard, LineChart, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, Users, UsersRound, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Banknote, BarChart3, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardList, FileSpreadsheet, FileText, Gift, HandCoins, Landmark, LayoutDashboard, LineChart, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, UserRound, Users, UsersRound, Wallet } from 'lucide-react';
 import { SearchPalette } from '@/components/search-palette';
 import { AppShell, BrandMark, Spinner, useAuth, type NavItem } from '@nexzi/ui';
 
 const NAV: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard, permission: 'payroll.view' },
   { label: 'My payslips', href: '/my', icon: FileText, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
+  { label: 'My account', href: '/my/account', icon: UserRound, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
   { label: 'My leave', href: '/my/leave', icon: CalendarDays, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
   { label: 'My attendance', href: '/my/attendance', icon: CalendarCheck2, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
   { label: 'Notifications', href: '/notifications', icon: Bell, permission: 'notifications.view', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
