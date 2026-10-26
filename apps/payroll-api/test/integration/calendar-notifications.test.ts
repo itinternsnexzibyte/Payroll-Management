@@ -86,12 +86,37 @@ describe('calendar events and employee notifications', () => {
   it('validates event data, keeps employee notifications private and enforces permissions', async () => {
     expect((await admin.get('/calendar/events?start=2026-12-31&end=2026-01-01')).status).toBe(400);
     expect((await post(admin, '/calendar/events', { title: 'Invalid', eventDate: '2026-11-10', color: 'red' })).status).toBe(400);
-    expect((await employeeUser.post('/calendar/events').set('Origin', ORIGIN).send({ title: 'Not allowed' })).status).toBe(403);
+    expect((await employeeUser.post('/calendar/events').set('Origin', ORIGIN).send({ title: 'No date' })).status).toBe(400);
     expect((await employeeUser.get('/employee-notifications')).status).toBe(200);
 
     const otherNotification = await prisma.employeeNotification.create({
       data: { employeeId: otherEmployeeId, title: 'Private', message: 'Private detail', kind: 'TEST' },
     });
     expect((await post(employeeUser, `/notifications/${otherNotification.id}/read`, {})).status).toBe(404);
+  });
+
+  it('lets an employee add, edit and cancel only their own personal events', async () => {
+    const before = await prisma.employeeNotification.count();
+    const mine = await post(employeeUser, '/calendar/events', { title: 'Dentist appointment', eventDate: '2026-12-03', eventTime: '10:00', employeeId: otherEmployeeId });
+    expect(mine.status).toBe(201);
+    // Always saved for the employee themselves, whatever audience was sent, and nobody is notified.
+    expect(mine.body).toMatchObject({ title: 'Dentist appointment', employee: { id: employeeId }, editable: true });
+    expect(await prisma.employeeNotification.count()).toBe(before);
+
+    const shared = await post(admin, '/calendar/events', { title: 'Holiday party', eventDate: '2026-12-04', employeeId: null });
+    const assigned = await post(admin, '/calendar/events', { title: 'Review meeting', eventDate: '2026-12-05', employeeId });
+    const list = (await employeeUser.get('/calendar/events?start=2026-12-01&end=2026-12-31')).body as { id: string; editable: boolean }[];
+    expect(list.map((e) => [e.id, e.editable])).toEqual([[mine.body.id, true], [shared.body.id, false], [assigned.body.id, false]]);
+    expect((await admin.get('/calendar/events?start=2026-12-01&end=2026-12-31')).body.every((e: { editable: boolean }) => e.editable)).toBe(true);
+
+    const edited = await put(employeeUser, `/calendar/events/${mine.body.id}`, { title: 'Dentist (moved)', eventDate: '2026-12-06', employeeId: null });
+    expect(edited.status).toBe(200);
+    expect(edited.body).toMatchObject({ title: 'Dentist (moved)', eventDate: '2026-12-06', employee: { id: employeeId } });
+    for (const id of [shared.body.id, assigned.body.id]) {
+      expect((await put(employeeUser, `/calendar/events/${id}`, { title: 'Hijacked', eventDate: '2026-12-06' })).status).toBe(404);
+      expect((await employeeUser.delete(`/calendar/events/${id}`).set('Origin', ORIGIN)).status).toBe(404);
+    }
+    expect((await employeeUser.delete(`/calendar/events/${mine.body.id}`).set('Origin', ORIGIN)).status).toBe(200);
+    expect(await prisma.calendarEvent.count({ where: { id: mine.body.id } })).toBe(0);
   });
 });

@@ -153,9 +153,9 @@
 | Workforce | `POST` | `/my/assignments/{id}/submissions` | Submit work for an assigned task | workforce.submit |
 | Workforce | `PUT` | `/assignments/submissions/{id}/review` | Accept a submission or request changes | workforce.review |
 | Calendar | `GET` | `/calendar/events` | List visible calendar events | calendar.view |
-| Calendar | `POST` | `/calendar/events` | Create a general or employee-specific calendar event | calendar.manage |
-| Calendar | `PUT` | `/calendar/events/{id}` | Edit a calendar event and notify affected employees | calendar.manage |
-| Calendar | `DELETE` | `/calendar/events/{id}` | Cancel a calendar event and notify affected employees | calendar.manage |
+| Calendar | `POST` | `/calendar/events` | Create a general or employee-specific calendar event (employees: a personal event for themselves) | calendar.manage, calendar.view |
+| Calendar | `PUT` | `/calendar/events/{id}` | Edit a calendar event and notify affected employees (employees: their own personal events) | calendar.manage, calendar.view |
+| Calendar | `DELETE` | `/calendar/events/{id}` | Cancel a calendar event and notify affected employees (employees: their own personal events) | calendar.manage, calendar.view |
 | Notifications | `GET` | `/employee-notifications` | List notifications for the linked employee | notifications.view |
 | Notifications | `POST` | `/notifications/read-all` | Mark all linked employee notifications as read | notifications.view |
 | Notifications | `POST` | `/notifications/{id}/read` | Mark one linked employee notification as read | notifications.view |
