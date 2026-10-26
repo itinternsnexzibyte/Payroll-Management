@@ -20,6 +20,8 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/${APP}/.next/standalone ./
 COPY --from=build --chown=node:node /repo/apps/${APP}/.next/static ./apps/${APP}/.next/static
+COPY --from=build --chown=node:node /repo/apps/${APP}/public ./apps/${APP}/public
+COPY --from=build --chown=node:node /repo/apps/${APP}/public ./public
 USER node
 ENV APP_DIR=apps/${APP}
 EXPOSE 3001 3002
