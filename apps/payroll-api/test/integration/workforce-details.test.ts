@@ -96,9 +96,15 @@ describe('Payroll-native workforce details', () => {
     expect(invalid.status).toBe(415);
   });
 
-  it('allows an employee to upload only their own profile photo and previews it privately', async () => {
+  it('lets only the payroll team upload; the employee previews their own profile photo privately', async () => {
     const photoBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=', 'base64');
-    const uploaded = await employee
+    const selfUpload = await employee
+      .post(`/employees/${employeeId}/documents`)
+      .set('Origin', ORIGIN)
+      .field('category', 'PROFILE_PHOTO')
+      .attach('file', photoBytes, { filename: 'profile.png', contentType: 'image/png' });
+    expect(selfUpload.status).toBe(403);
+    const uploaded = await admin
       .post(`/employees/${employeeId}/documents`)
       .set('Origin', ORIGIN)
       .field('category', 'PROFILE_PHOTO')

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Lock } from 'lucide-react';
-import { Alert, Button, Card, Field, Input, KeyValue, PageHeader, RequirePermission, Spinner, errorMessage, formatDateTime, get, put, useToast } from '@nexzi/ui';
+import { Alert, Button, Card, Field, Input, KeyValue, Spinner, errorMessage, formatDateTime, get, put, useToast } from '@nexzi/ui';
 
 interface Bank {
   accountHolder: string;
@@ -17,37 +17,27 @@ interface MyBank {
   bank: Bank | null;
 }
 
-export default function MyBankPage() {
+/** The signed-in employee's salary account: shown masked, added or replaced through self-service. */
+export function MyBankDetails() {
   const q = useQuery({ queryKey: ['me-bank'], queryFn: () => get<MyBank>('/me/bank'), retry: false });
   const [editing, setEditing] = useState(false);
+  if (q.isLoading) return <Spinner />;
+  if (q.error || !q.data) return <Alert tone="warning">{errorMessage(q.error)}</Alert>;
+  if (editing || !q.data.bank) return <BankForm current={q.data.bank} disabled={!q.data.keyConfigured} onDone={q.data.bank ? () => setEditing(false) : undefined} />;
   return (
-    <RequirePermission permission="self.service">
-      <PageHeader
-        title="My bank details"
-        description="The account your salary is paid into. The number is stored encrypted; the payroll team and this page show only its last four digits."
-        breadcrumbs={[{ label: 'My payslips', href: '/my' }, { label: 'My bank details' }]}
+    <Card title="Bank details" actions={<Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Change</Button>}>
+      <KeyValue
+        columns={2}
+        items={[
+          { label: 'Account holder', value: q.data.bank.accountHolder },
+          { label: 'Account number', value: <span className="inline-flex items-center gap-1 font-mono"><Lock className="h-3 w-3 text-muted" />{q.data.bank.accountNumberMasked}</span> },
+          { label: 'IFSC', value: q.data.bank.ifsc },
+          { label: 'Bank', value: [q.data.bank.bankName, q.data.bank.branch].filter(Boolean).join(', ') || '—' },
+          { label: 'Last updated', value: formatDateTime(q.data.bank.updatedAt) },
+        ]}
       />
-      {q.isLoading ? (
-        <Spinner />
-      ) : q.error || !q.data ? (
-        <Alert tone="warning" title="Your account is not linked yet">{errorMessage(q.error)}</Alert>
-      ) : editing || !q.data.bank ? (
-        <BankForm current={q.data.bank} disabled={!q.data.keyConfigured} onDone={q.data.bank ? () => setEditing(false) : undefined} />
-      ) : (
-        <Card title="Salary account" actions={<Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Change</Button>}>
-          <KeyValue
-            columns={2}
-            items={[
-              { label: 'Account holder', value: q.data.bank.accountHolder },
-              { label: 'Account number', value: <span className="inline-flex items-center gap-1 font-mono"><Lock className="h-3 w-3 text-muted" />{q.data.bank.accountNumberMasked}</span> },
-              { label: 'IFSC', value: q.data.bank.ifsc },
-              { label: 'Bank', value: [q.data.bank.bankName, q.data.bank.branch].filter(Boolean).join(', ') || '—' },
-              { label: 'Last updated', value: formatDateTime(q.data.bank.updatedAt) },
-            ]}
-          />
-        </Card>
-      )}
-    </RequirePermission>
+      <p className="mt-4 text-xs text-muted">Your salary is paid into this account. The number is stored encrypted; only its last four digits are shown, here and to the payroll team.</p>
+    </Card>
   );
 }
 
@@ -70,7 +60,7 @@ function BankForm({ current, disabled, onDone }: { current: Bank | null; disable
   const ifscOk = /^[A-Z]{4}0[A-Z0-9]{6}$/.test(f.ifsc.trim().toUpperCase());
   const valid = f.accountHolder.trim() && acctOk && match && ifscOk;
   return (
-    <Card title={current ? 'Change salary account' : 'Add your salary account'}>
+    <Card title={current ? 'Change bank details' : 'Add your bank details'}>
       {disabled && <Alert tone="warning" className="mb-4">Bank details cannot be saved right now. Please ask the payroll team.</Alert>}
       {current && <Alert tone="info" className="mb-4">Your current account ({current.accountNumberMasked}) is replaced. For security, the full number is never shown — enter it again.</Alert>}
       <div className="grid gap-4 sm:grid-cols-2">
