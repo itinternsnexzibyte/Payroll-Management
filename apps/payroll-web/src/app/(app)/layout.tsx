@@ -9,6 +9,7 @@ const NAV: NavItem[] = [
   { label: 'My payslips', href: '/my', icon: FileText, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
   { label: 'My leave', href: '/my/leave', icon: CalendarDays, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
   { label: 'My attendance', href: '/my/attendance', icon: CalendarCheck2, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
+  { label: 'My bank details', href: '/my/bank', icon: Landmark, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
   { label: 'Notifications', href: '/notifications', icon: Bell, permission: 'notifications.view', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
   { label: 'Payroll runs', href: '/payroll', icon: CalendarCheck2, permission: 'payroll.view', section: 'Payroll' },
   { label: 'Payroll alerts', href: '/alerts', icon: ShieldAlert, permission: 'payroll.view_amounts', section: 'Payroll' },

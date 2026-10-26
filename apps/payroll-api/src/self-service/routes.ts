@@ -11,6 +11,8 @@ import { periodLabel } from '../payroll/service';
 import { storage } from '../output/routes';
 import { sendPdf } from '../output/report-export';
 import { balancesFor, createLeaveRequest, requestBody, serializeLeave } from '../leave/routes';
+import { bankBody, saveBankAccount, serializeBank } from '../bank/routes';
+import { bankKeyConfigured } from '../bank/crypto';
 
 async function myEmployee(user: AuthUser) {
   const u = await prisma.user.findUnique({ where: { id: user.id }, select: { employeeId: true } });
@@ -106,6 +108,32 @@ export function registerSelfServiceRoutes(r: ApiRegistry) {
       if (res.count !== 1) throw new AppError('CONFLICT', 'Only your own pending requests can be cancelled.');
       await audit.write({ actorId: user.id, action: 'leave.cancelled', entity: 'leave_request', entityId: params.id, before: { status: 'REQUESTED' }, after: { status: 'CANCELLED' }, ip });
       return { status: 'CANCELLED' };
+    },
+  });
+
+  r.add({
+    method: 'get',
+    path: '/me/bank',
+    tag: 'Self-service',
+    summary: 'My salary bank account (account number masked)',
+    permission: 'self.service',
+    handler: async ({ user }) => {
+      const e = await myEmployee(user);
+      const account = await prisma.employeeBankAccount.findUnique({ where: { employeeId: e.id } });
+      return { keyConfigured: bankKeyConfigured(), bank: serializeBank(account) };
+    },
+  });
+
+  r.add({
+    method: 'put',
+    path: '/me/bank',
+    tag: 'Self-service',
+    summary: 'Add or replace my salary bank account (account number stored encrypted; the payroll team sees it masked)',
+    permission: 'self.service',
+    body: bankBody,
+    handler: async ({ body, user, ip }) => {
+      const e = await myEmployee(user);
+      return { keyConfigured: true, bank: serializeBank(await saveBankAccount(e.id, body, user, ip)) };
     },
   });
 }

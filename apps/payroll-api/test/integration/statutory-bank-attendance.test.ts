@@ -7,7 +7,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request, { type Agent } from 'supertest';
 import { prisma, Prisma } from '../../src/db';
 import { setBankKeyForTests } from '../../src/bank/crypto';
-import { app, login, ORIGIN, resetDb, seedMasters } from '../helpers';
+import { app, login, ORIGIN, PASSWORD, resetDb, seedMasters } from '../helpers';
+import { createUser } from '../../src/bootstrap';
 
 let admin: Agent;
 let user: Agent;
@@ -141,6 +142,25 @@ describe('bank details and bank salary file', () => {
     expect((await user.get('/bank/accounts')).status).toBe(403);
     expect((await put(user, `/employees/${emp.a}/bank`, { accountHolder: 'X', accountNumber: '123456', ifsc: 'ABCD0123456' })).status).toBe(403);
     expect((await user.get(`/payroll-runs/${aprilRun}/bank-export?paymentDate=2026-04-30`)).status).toBe(403);
+  });
+
+  it('lets an employee add their own account, which the payroll team sees masked', async () => {
+    const self = await prisma.employee.create({ data: { employeeCode: 'E-SELF', fullName: 'Self Service', joiningDate: new Date('2025-01-01T00:00:00Z') } });
+    const account = await createUser('self.bank@test.local', 'Self Service', 'EMPLOYEE', PASSWORD, false);
+    await prisma.user.update({ where: { id: account.id }, data: { employeeId: self.id } });
+    const me = await login('self.bank@test.local');
+    expect((await me.get('/me/bank')).body).toMatchObject({ keyConfigured: true, bank: null });
+    expect((await put(me, '/me/bank', { accountHolder: 'Self Service', accountNumber: '555566667777', ifsc: 'bad' })).status).toBe(400);
+    const res = await put(me, '/me/bank', { accountHolder: 'Self Service', accountNumber: '5555 6666 7777', ifsc: 'hdfc0001234', bankName: 'HDFC Bank' });
+    expect(res.status).toBe(200);
+    expect(res.body.bank).toMatchObject({ accountNumberMasked: '•••• 7777', ifsc: 'HDFC0001234' });
+    expect(JSON.stringify((await me.get('/me/bank')).body)).not.toContain('555566667777');
+    const items = (await admin.get('/bank/accounts')).body.items as { employeeCode: string; bank: { accountNumberMasked: string; enteredByEmployee: boolean } | null }[];
+    expect(items.find((i) => i.employeeCode === 'E-SELF')!.bank).toMatchObject({ accountNumberMasked: '•••• 7777', enteredByEmployee: true });
+    expect(items.find((i) => i.employeeCode === 'E-1')!.bank).toMatchObject({ enteredByEmployee: false });
+    // Self-service reaches only the linked employee's own account.
+    expect((await me.get('/bank/accounts')).status).toBe(403);
+    expect((await put(me, `/employees/${emp.a}/bank`, { accountHolder: 'X', accountNumber: '123456', ifsc: 'ABCD0123456' })).status).toBe(403);
   });
 
   it('is switched off without an encryption key', async () => {
