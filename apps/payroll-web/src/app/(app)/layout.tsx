@@ -1,6 +1,7 @@
 'use client';
 import { Suspense } from 'react';
-import { ArrowLeftRight, Banknote, BarChart3, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardList, FileSpreadsheet, FileText, Gift, HandCoins, Landmark, LayoutDashboard, RadioTower, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, Users, UsersRound, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Banknote, BarChart3, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardList, FileSpreadsheet, FileText, Gift, HandCoins, Landmark, LayoutDashboard, LineChart, RadioTower, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, Users, UsersRound, Wallet } from 'lucide-react';
+import { SearchPalette } from '@/components/search-palette';
 import { AppShell, BrandMark, Spinner, useAuth, type NavItem } from '@nexzi/ui';
 
 const NAV: NavItem[] = [
@@ -12,6 +13,7 @@ const NAV: NavItem[] = [
   { label: 'Payroll runs', href: '/payroll', icon: CalendarCheck2, permission: 'payroll.view', section: 'Payroll' },
   { label: 'Payroll alerts', href: '/alerts', icon: ShieldAlert, permission: 'payroll.view_amounts', section: 'Payroll' },
   { label: 'Reconciliation', href: '/reconciliation', icon: ArrowLeftRight, permission: 'reports.view', section: 'Payroll' },
+  { label: 'Analytics', href: '/analytics', icon: LineChart, permission: 'reports.view', section: 'Payroll' },
   { label: 'Reports', href: '/reports', icon: BarChart3, permission: 'reports.view', section: 'Payroll' },
   { label: 'Bank salary payments', href: '/bank', icon: Banknote, permission: ['bank.view', 'bank.manage', 'bank.export'], section: 'Payroll' },
   { label: 'Loans & advances', href: '/advances', icon: HandCoins, permission: 'loans.manage', section: 'Payroll' },
@@ -27,6 +29,7 @@ const NAV: NavItem[] = [
   { label: 'Statutory deductions', href: '/statutory', icon: Landmark, permission: 'settings.manage', section: 'Configuration' },
   { label: 'Attendance sync', href: '/attendance-sync', icon: RadioTower, permission: 'integrations.manage', section: 'Configuration' },
   { label: 'Attendance records', href: '/attendance', icon: CalendarDays, permission: 'attendance.view', section: 'Configuration' },
+  { label: 'Attendance to payroll', href: '/attendance/payroll', icon: CalendarCheck2, permission: 'attendance.view', section: 'Configuration' },
   { label: 'Departments', href: '/settings/masters', icon: Building2, permission: ['settings.manage', 'employees.manage'], section: 'Configuration' },
   { label: 'Knowledge centre', href: '/knowledge', icon: BookOpen, section: 'Handover' },
   { label: 'Users', href: '/admin/users', icon: Users, permission: 'users.manage', section: 'Administration' },
@@ -49,6 +52,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AppShell brand={{ appName: 'Payroll Management', company: 'NexziByte', logo: <BrandMark letter="P" />, logoImage: { src: '/brand/nexzibyte-logo-light.png', alt: 'NexziByte Solutions Pvt Ltd' } }} nav={NAV} banner={<RulesBanner />}>
       <Suspense fallback={<Spinner />}>{children}</Suspense>
+      <SearchPalette />
     </AppShell>
   );
 }
