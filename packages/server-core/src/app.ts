@@ -36,14 +36,24 @@ export interface BaseAppOptions {
  * (or Referer) header from an allowed frontend, plus the session cookie is SameSite=Strict.
  */
 export function originCheck(allowedOrigins: string[], keyAuthPrefixes: string[] = []): RequestHandler {
-  const allowed = new Set(allowedOrigins.map((o) => o.replace(/\/$/, '')));
+  const allowed = new Set(
+    allowedOrigins.flatMap((o) => {
+      const clean = o.replace(/\/$/, '');
+      const hostOnly = clean.replace(/^https?:\/\//i, '');
+      return [clean, `https://${hostOnly}`, `http://${hostOnly}`];
+    }),
+  );
   return (req, _res, next) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
     // Server-to-server endpoints authenticate with an API key in the Authorization header (which a
     // browser cannot attach cross-site) and never with the session cookie, so CSRF does not apply.
     if (keyAuthPrefixes.some((p) => req.path.startsWith(p)) && /^Bearer\s+\S+$/i.test(req.get('authorization') ?? '')) return next();
     const origin = req.get('origin') ?? (req.get('referer') ? new URL(req.get('referer')!).origin : undefined);
-    if (!origin || !allowed.has(origin)) return next(new AppError('CSRF_REJECTED', 'Request origin is not allowed.'));
+    const host = req.get('x-forwarded-host') ?? req.get('host');
+    const isSameHost = Boolean(host && origin && (origin === `https://${host}` || origin === `http://${host}`));
+    if (!origin || (!allowed.has(origin) && !isSameHost)) {
+      return next(new AppError('CSRF_REJECTED', `Request origin "${origin ?? 'none'}" is not allowed. (Configured allowed: ${Array.from(allowed).join(', ')})`));
+    }
     next();
   };
 }
