@@ -17,6 +17,9 @@ import type { FormulaContext, FormulaRegistry } from '../payroll/formulas';
  *  - TDS: (Σ chosen monthly earnings × 12 − standard deduction) taxed by the slabs, zero up to the
  *         rebate limit, plus cess, divided by 12. A monthly override input, when entered, wins
  *         (use it for declarations, previous employment, arrears or anything this projection omits).
+ *  - Wage band (when on): employees whose gross (ESI wages) is at or below the threshold pay ESI
+ *         and no PF; above the threshold they pay PF and no ESI. The threshold then replaces the
+ *         ESI eligibility limit.
  * Employer PF / ESI contributions are not deductions from pay; they are recorded on the line for
  * the statutory report.
  */
@@ -45,6 +48,11 @@ export const statutorySchema = z.object({
     wageComponents: codes,
     eligibilityLimit: amount,
   }),
+  /**
+   * ESI at or below the threshold, PF above it (gross measured on the ESI wage components).
+   * Settings saved before the band existed keep their behaviour: a missing band is off.
+   */
+  wageBand: z.object({ enabled: z.boolean(), threshold: amount }).default({ enabled: false, threshold: 20000 }),
   tds: z.object({
     enabled: z.boolean(),
     taxableComponents: codes,
@@ -64,6 +72,7 @@ export const DEFAULT_STATUTORY: StatutorySettings = {
   reference: null,
   pf: { enabled: false, employeeRatePercent: null, employerRatePercent: null, wageComponents: [], wageCeiling: null, capAtCeiling: true },
   esi: { enabled: false, employeeRatePercent: null, employerRatePercent: null, wageComponents: [], eligibilityLimit: null },
+  wageBand: { enabled: true, threshold: 20000 },
   tds: { enabled: false, taxableComponents: [], standardDeduction: null, slabs: [], rebateLimit: null, cessPercent: null, overrideInputKey: null },
 };
 
@@ -87,7 +96,12 @@ export function statutoryProblems(s: StatutorySettings): Record<StatutoryKind, s
     if (s.esi.employeeRatePercent === null) out.ESI.push('Employee ESI rate is required.');
     if (s.esi.employerRatePercent === null) out.ESI.push('Employer ESI rate is required.');
     if (!s.esi.wageComponents.length) out.ESI.push('Choose the components that make up ESI wages.');
-    if (s.esi.eligibilityLimit === null) out.ESI.push('Enter the ESI wage eligibility limit.');
+    if (s.esi.eligibilityLimit === null && !s.wageBand.enabled) out.ESI.push('Enter the ESI wage eligibility limit.');
+  }
+  if (s.wageBand.enabled && (s.pf.enabled || s.esi.enabled)) {
+    const k = s.esi.enabled ? 'ESI' : 'PF';
+    if (s.wageBand.threshold === null) out[k].push('Enter the PF / ESI wage band threshold.');
+    if (!s.esi.wageComponents.length && !out.ESI.length) out[k].push('Choose the ESI wage components: the wage band measures gross on them.');
   }
   if (s.tds.enabled) {
     if (!s.tds.taxableComponents.length) out.TDS.push('Choose the taxable earning components.');
@@ -108,6 +122,13 @@ export function statutoryProblems(s: StatutorySettings): Record<StatutoryKind, s
 
 const sumOf = (ctx: FormulaContext, list: string[]) => list.reduce((acc, c) => acc.add(ctx.componentOrNull(c) ?? new Dec(0)), new Dec(0));
 const pctOf = (base: Dec, rate: number) => base.mul(dec(String(rate))).div(100);
+
+/** true = ESI side of the wage band (gross at or below the threshold); null = band switched off. */
+function inEsiBand(ctx: FormulaContext, s: StatutorySettings): { esi: boolean; gross: Dec } | null {
+  if (!s.wageBand.enabled || s.wageBand.threshold === null) return null;
+  const gross = sumOf(ctx, s.esi.wageComponents);
+  return { esi: gross.lte(dec(String(s.wageBand.threshold))), gross };
+}
 
 /** Annual tax on taxable income by progressive slabs, rebate and cess. Exported for tests. */
 export function annualTax(taxable: Dec, t: StatutorySettings['tds']): Dec {
@@ -137,11 +158,19 @@ export function buildStatutoryFormulas(s: StatutorySettings): FormulaRegistry {
       label: 'Provident Fund — employee contribution',
       description: 'Employee rate × PF wages (capped at the ceiling when set)',
       workbookReference: source,
-      dependsOn: s.pf.wageComponents,
+      dependsOn: [...new Set([...s.pf.wageComponents, ...(s.wageBand.enabled ? s.esi.wageComponents : [])])],
       appliesToAll: s.pf.enabled,
-      fingerprint: JSON.stringify(['PF', s.pf, s.confirmedBy, s.confirmedOn]),
+      fingerprint: JSON.stringify(['PF', s.pf, s.wageBand, s.wageBand.enabled ? s.esi.wageComponents : null, s.confirmedBy, s.confirmedOn]),
       evaluate: (ctx) => {
         guard('PF', s.pf.enabled);
+        const band = inEsiBand(ctx, s);
+        if (band?.esi) {
+          ctx.note('wageBand', `gross ${band.gross.toFixed(2)} <= ${s.wageBand.threshold}: ESI applies instead of PF`);
+          ctx.note('pfWages', '0.00');
+          ctx.note('employerContribution', '0.00');
+          return new Dec(0);
+        }
+        if (band) ctx.note('wageBand', `gross ${band.gross.toFixed(2)} > ${s.wageBand.threshold}: PF applies`);
         const wages = sumOf(ctx, s.pf.wageComponents);
         const base = s.pf.capAtCeiling && s.pf.wageCeiling !== null ? Dec.min(wages, dec(String(s.pf.wageCeiling))) : wages;
         ctx.note('pfWages', base.toFixed(2));
@@ -155,11 +184,13 @@ export function buildStatutoryFormulas(s: StatutorySettings): FormulaRegistry {
       workbookReference: source,
       dependsOn: s.esi.wageComponents,
       appliesToAll: s.esi.enabled,
-      fingerprint: JSON.stringify(['ESI', s.esi, s.confirmedBy, s.confirmedOn]),
+      fingerprint: JSON.stringify(['ESI', s.esi, s.wageBand, s.confirmedBy, s.confirmedOn]),
       evaluate: (ctx) => {
         guard('ESI', s.esi.enabled);
         const wages = sumOf(ctx, s.esi.wageComponents);
-        const covered = wages.lte(dec(String(s.esi.eligibilityLimit)));
+        const band = inEsiBand(ctx, s);
+        const covered = band ? band.esi : wages.lte(dec(String(s.esi.eligibilityLimit)));
+        if (band) ctx.note('wageBand', band.esi ? `gross ${wages.toFixed(2)} <= ${s.wageBand.threshold}: ESI applies` : `gross ${wages.toFixed(2)} > ${s.wageBand.threshold}: PF applies instead of ESI`);
         ctx.note('esiWages', wages.toFixed(2));
         ctx.note('esiCovered', covered ? 'yes' : 'no');
         ctx.note('employerContribution', covered ? pctOf(wages, s.esi.employerRatePercent!).toFixed(2) : '0.00');

@@ -14,8 +14,11 @@ import {
 import { prisma, Prisma } from '../db';
 import { audit } from '../audit';
 import { config } from '../config';
-import { periodLabel } from '../payroll/service';
-import { renderPayslipHtml, type PayslipData, type ReportColumn, type ReportData } from './templates';
+import { MONTHS, periodLabel } from '../payroll/service';
+import { employedDaysInMonth, type CalcSummary } from '../payroll/engine';
+import { getSettings } from '../settings';
+import { DEFAULT_LOGO_DATA_URL } from './brand-logo';
+import { amountInWords, renderPayslipHtml, type PayslipData, type ReportColumn, type ReportData } from './templates';
 import { sendPdf, sendReport } from './report-export';
 import { notifyRun } from '../notify';
 
@@ -30,21 +33,40 @@ function banners(rulesApproved: boolean): string[] {
 
 const fmtNow = () => new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
-async function payslipData(runId: string, employeeIds?: string[]): Promise<PayslipData> {
+const CONTRIBUTION_REFS = new Set(['STATUTORY_PF', 'STATUTORY_ESI']);
+/** Employee PF / ESI go under "Contributions (B)"; everything else under "Taxes & Deductions (C)". */
+const isContribution = (l: { componentCode: string; calcDetail: Prisma.JsonValue }) =>
+  CONTRIBUTION_REFS.has(String((l.calcDetail as Record<string, unknown> | null)?.formulaRef ?? '')) || /^(E?PF|ESI|ESIC)(_|$)/i.test(l.componentCode);
+
+const fmtDay = (d: Date) => `${String(d.getUTCDate()).padStart(2, '0')} ${MONTHS[d.getUTCMonth()].slice(0, 3)} ${d.getUTCFullYear()}`;
+const sumAmounts = (list: { amount: string }[]) => money(list.reduce((acc, l) => acc.add(dec(l.amount)), new Dec(0)));
+
+export async function payslipData(runId: string, employeeIds?: string[]): Promise<PayslipData> {
   const run = await prisma.payrollRun.findUnique({ where: { id: runId } });
   if (!run) throw notFound('Payroll run');
   if (run.status === 'DRAFT') throw new AppError('INVALID_STATE', 'Calculate the payroll before generating payslips.');
   const members = await prisma.payrollRunEmployee.findMany({
     where: { payrollRunId: runId, ...(employeeIds ? { employeeId: { in: employeeIds } } : {}) },
+    include: { employee: { include: { manager: { select: { fullName: true } }, bankAccount: true } } },
     orderBy: { employeeCode: 'asc' },
   });
   if (!members.length) throw notFound('Employee in this payroll run');
   const errored = members.filter((m) => m.resultStatus === 'ERROR' || m.resultStatus === 'PENDING');
   if (errored.length && run.status === 'FINALISED') throw new AppError('INVALID_STATE', 'Some results are incomplete.');
-  const lines = await prisma.payrollLine.findMany({ where: { payrollRunId: runId, showOnPayslip: true, employeeId: { in: members.map((m) => m.employeeId) } }, orderBy: [{ sortOrder: 'asc' }, { componentCode: 'asc' }] });
+  const [lines, settings] = await Promise.all([
+    prisma.payrollLine.findMany({ where: { payrollRunId: runId, showOnPayslip: true, employeeId: { in: members.map((m) => m.employeeId) } }, orderBy: [{ sortOrder: 'asc' }, { componentCode: 'asc' }] }),
+    getSettings(),
+  ]);
+  const brand = settings.branding;
+  const daysInMonth = new Date(Date.UTC(run.year, run.month, 0)).getUTCDate();
   return {
-    companyName: config.PAYSLIP_COMPANY_NAME,
+    companyName: brand.companyName || config.PAYSLIP_COMPANY_NAME,
+    companyAddress: brand.address,
+    logoDataUrl: brand.logoDataUrl ?? DEFAULT_LOGO_DATA_URL,
+    primaryColor: brand.primaryColor,
+    accentColor: brand.accentColor,
     period: periodLabel(run.year, run.month),
+    periodShort: `${MONTHS[run.month - 1].slice(0, 3).toUpperCase()} ${run.year}`,
     runStatus: run.status.replace('_', ' '),
     generatedAt: fmtNow(),
     watermark: run.status === 'FINALISED' ? (run.rulesApproved ? null : 'PROVISIONAL') : 'DRAFT — NOT FINAL',
@@ -52,17 +74,55 @@ async function payslipData(runId: string, employeeIds?: string[]): Promise<Paysl
     slips: members
       .filter((m) => m.resultStatus !== 'ERROR' && m.resultStatus !== 'PENDING')
       .map((m) => {
-        const mine = lines.filter((l) => l.employeeId === m.employeeId);
+        // Zero lines (e.g. PF for an employee in the ESI band) are left off the payslip.
+        const mine = lines.filter((l) => l.employeeId === m.employeeId && !l.amount.isZero());
+        const amount = (l: (typeof mine)[number]) => ({ name: l.componentName, amount: l.amount.toString() });
+        const earnings = mine.filter((l) => l.componentType === 'EARNING').map(amount);
+        const contributions = mine.filter((l) => l.componentType === 'DEDUCTION' && isContribution(l)).map(amount);
+        const deductions = mine.filter((l) => l.componentType === 'DEDUCTION' && !isContribution(l)).map(amount);
+        const summary = (m.calcSummary ?? {}) as Partial<CalcSummary>;
+        // Results calculated before pay-day summaries existed: derive what is known.
+        const employerShare = (ref: string) =>
+          money(lines.filter((l) => l.employeeId === m.employeeId && (l.calcDetail as Record<string, unknown> | null)?.formulaRef === ref).reduce((acc, l) => acc.add(dec(String((l.calcDetail as Record<string, unknown>).employerContribution ?? '0'))), new Dec(0)));
+        const employedDays = summary.employedDays ?? employedDaysInMonth(m.employee, run.year, run.month);
+        const employer = { pf: summary.employerPf ?? employerShare('STATUTORY_PF'), esi: summary.employerEsi ?? employerShare('STATUTORY_ESI'), gratuity: summary.gratuity ?? '0.00' };
+        const gross = m.gross?.toString() ?? '0';
+        const net = m.net?.toString() ?? '0';
+        const bank = m.employee.bankAccount;
         return {
           employeeCode: m.employeeCode,
           employeeName: m.employeeName,
-          department: m.departmentName,
-          designation: m.designationName,
-          earnings: mine.filter((l) => l.componentType === 'EARNING').map((l) => ({ name: l.componentName, amount: l.amount.toString() })),
-          deductions: mine.filter((l) => l.componentType === 'DEDUCTION').map((l) => ({ name: l.componentName, amount: l.amount.toString() })),
-          gross: m.gross?.toString() ?? '0',
+          department: m.departmentName ?? 'N/A',
+          designation: m.designationName ?? 'N/A',
+          dateJoined: fmtDay(m.employee.joiningDate),
+          manager: m.employee.manager?.fullName ?? 'N/A',
+          paymentMode: bank ? 'Bank Transfer' : 'Not set',
+          bankName: bank?.bankName ?? 'N/A',
+          ifsc: bank?.ifsc ?? 'N/A',
+          bankAccount: bank ? `XXXXXXXX${bank.accountLast4}` : 'N/A',
+          uan: m.employee.uanNumber ?? 'N/A',
+          pfNumber: m.employee.pfNumber ?? 'N/A',
+          pan: m.employee.panNumber ?? 'N/A',
+          days: {
+            daysInMonth: String(summary.daysInMonth ?? daysInMonth),
+            employedDays: String(employedDays),
+            lopDays: summary.lopDays ?? '0',
+            payableDays: summary.payableDays ?? String(employedDays),
+          },
+          earnings,
+          contributions,
+          deductions,
+          gross,
+          totalContributions: sumAmounts(contributions),
+          totalOtherDeductions: sumAmounts(deductions),
           totalDeductions: m.deductions?.toString() ?? '0',
-          net: m.net?.toString() ?? '0',
+          net,
+          netInWords: amountInWords(money(dec(net))),
+          employer: {
+            show: [employer.pf, employer.esi, employer.gratuity].some((v) => !dec(v).isZero()),
+            ...employer,
+            ctc: money(dec(gross).add(dec(employer.pf)).add(dec(employer.esi)).add(dec(employer.gratuity))),
+          },
         };
       }),
   };

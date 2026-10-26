@@ -28,10 +28,11 @@ import {
   useToast,
 } from '@nexzi/ui';
 import { useInputDefinitions } from '@/lib/hooks';
+import { BrandingForm, StructureForm } from '@/components/settings-structure';
 import type { AnomalyRules, InputDefinition, Settings } from '@/lib/types';
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<'rules' | 'inputs' | 'alerts' | 'modules'>('rules');
+  const [tab, setTab] = useState<'rules' | 'structure' | 'branding' | 'inputs' | 'alerts' | 'modules'>('rules');
   return (
     <RequirePermission permission="settings.manage">
       <PageHeader title="Payroll settings" description="Business rules applied to every payroll calculation. Every change is audit-logged." breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Payroll settings' }]} />
@@ -40,12 +41,14 @@ export default function SettingsPage() {
         onChange={setTab}
         tabs={[
           { id: 'rules', label: 'Calculation & approval' },
+          { id: 'structure', label: 'Salary structure' },
+          { id: 'branding', label: 'Payslip branding' },
           { id: 'inputs', label: 'Monthly input columns' },
           { id: 'alerts', label: 'Payroll alerts' },
           { id: 'modules', label: 'Inputs from modules & email' },
         ]}
       />
-      {tab === 'rules' ? <RulesForm /> : tab === 'inputs' ? <InputDefinitions /> : tab === 'alerts' ? <AlertRulesForm /> : <ModulesForm />}
+      {tab === 'rules' ? <RulesForm /> : tab === 'structure' ? <StructureForm /> : tab === 'branding' ? <BrandingForm /> : tab === 'inputs' ? <InputDefinitions /> : tab === 'alerts' ? <AlertRulesForm /> : <ModulesForm />}
     </RequirePermission>
   );
 }

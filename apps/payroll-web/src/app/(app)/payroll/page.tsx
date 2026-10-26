@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Plus, Zap } from 'lucide-react';
 import {
   Alert,
   ApiError,
@@ -48,6 +48,7 @@ const FILTERS = { status: '', year: '' };
 function RunsList() {
   const { can } = useAuth();
   const [open, setOpen] = useState(false);
+  const [autoOpen, setAutoOpen] = useState(false);
   const list = useListParams({ sortBy: 'period', sortDir: 'desc', filters: FILTERS });
   const q = useQuery({ queryKey: ['runs', list.query], queryFn: () => get<Page<RunSummary>>(`/payroll-runs${qs(list.query)}`), placeholderData: (p) => p });
   const thisYear = new Date().getFullYear();
@@ -59,9 +60,16 @@ function RunsList() {
         breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Payroll runs' }]}
         actions={
           can('payroll.input') && (
-            <Button icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>
-              Start payroll run
-            </Button>
+            <div className="flex gap-2">
+              {can('payroll.calculate') && (
+                <Button icon={<Zap className="h-4 w-4" />} onClick={() => setAutoOpen(true)}>
+                  Run payroll automatically
+                </Button>
+              )}
+              <Button variant="secondary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>
+                Start payroll run
+              </Button>
+            </div>
           )
         }
       />
@@ -109,7 +117,97 @@ function RunsList() {
         {q.data && <Pagination page={q.data.page} totalPages={q.data.totalPages} total={q.data.total} pageSize={q.data.pageSize} onPage={list.setPage} onPageSize={list.setPageSize} />}
       </Card>
       <StartRunDialog open={open} onClose={() => setOpen(false)} />
+      <AutoRunDialog open={autoOpen} onClose={() => setAutoOpen(false)} />
     </>
+  );
+}
+
+interface AutoResult {
+  runId: string;
+  period: string;
+  steps: { step: string; status: 'DONE' | 'SKIPPED' | 'FAILED'; detail: string }[];
+}
+
+/** Creates the month's run, fills inputs from attendance, leave, advances and bonuses, and calculates. */
+function AutoRunDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const router = useRouter();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<AutoResult | null>(null);
+  useEffect(() => {
+    if (open) setResult(null);
+  }, [open]);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await post<AutoResult>('/payroll-runs/auto', { year, month });
+      setResult(r);
+      await qc.invalidateQueries({ queryKey: ['runs'] });
+      toast.success(`${r.period} calculated. Review the results, then submit for approval.`);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Run payroll automatically"
+      footer={
+        result ? (
+          <Button onClick={() => router.push(`/payroll/${result.runId}`)}>Open {result.period}</Button>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button loading={busy} icon={<Zap className="h-4 w-4" />} onClick={run}>
+              Run
+            </Button>
+          </>
+        )
+      }
+    >
+      {result ? (
+        <ol className="space-y-2">
+          {result.steps.map((s) => (
+            <li key={s.step} className="flex items-start gap-3 rounded-md border border-line p-3 text-sm">
+              <Badge tone={s.status === 'DONE' ? 'success' : s.status === 'FAILED' ? 'danger' : 'neutral'}>{s.status.toLowerCase()}</Badge>
+              <div>
+                <p className="font-medium text-ink">{s.step}</p>
+                <p className="text-muted">{s.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Salaries come from each employee&apos;s salary structure — nothing is typed by hand. This creates the month&apos;s run (or reuses a draft), fills loss-of-pay, attendance, advances and bonuses from their modules, and calculates. Review, approval and finalisation stay with you.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Month" htmlFor="auto-month">
+              <Select id="auto-month" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i + 1}>
+                    {m}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Year" htmlFor="auto-year">
+              <Input id="auto-year" type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} />
+            </Field>
+          </div>
+        </div>
+      )}
+    </Dialog>
   );
 }
 

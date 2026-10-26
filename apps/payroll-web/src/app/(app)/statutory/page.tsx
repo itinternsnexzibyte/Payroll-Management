@@ -13,6 +13,7 @@ interface Settings {
   reference: string | null;
   pf: { enabled: boolean; employeeRatePercent: Num; employerRatePercent: Num; wageComponents: string[]; wageCeiling: Num; capAtCeiling: boolean };
   esi: { enabled: boolean; employeeRatePercent: Num; employerRatePercent: Num; wageComponents: string[]; eligibilityLimit: Num };
+  wageBand: { enabled: boolean; threshold: Num };
   tds: { enabled: boolean; taxableComponents: string[]; standardDeduction: Num; slabs: { upTo: Num; ratePercent: number }[]; rebateLimit: Num; cessPercent: Num; overrideInputKey: string | null };
 }
 type Kind = 'PF' | 'ESI' | 'TDS';
@@ -67,6 +68,16 @@ function Editor() {
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
+  const standard = useMutation({
+    mutationFn: () => post<State>('/statutory/standard-setup', { threshold: s?.wageBand.threshold ?? 20000 }),
+    onSuccess: (d) => {
+      toast.success('Standard PF and ESI applied with the wage band. Recalculate open payroll months to apply them.');
+      qc.setQueryData(['statutory'], d);
+      setS(d.settings);
+      qc.invalidateQueries({ queryKey: ['salary-components'] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
   if (q.isLoading || !s) return q.error ? <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} /> : <Spinner />;
   const earnings = (comps.data?.items ?? []).filter((c) => c.type === 'EARNING' && c.active);
   const numericInputs = (inputs.data ?? []).filter((d) => d.dataType === 'NUMBER' && d.active !== false);
@@ -99,6 +110,24 @@ function Editor() {
       <Alert tone="info" title="How it works">
         Each switched-on deduction is added for every employee who has a salary structure in the payroll month. Wages are the sum of the components you tick. Employer PF and ESI shares are not deducted from pay; they appear in the <Link href="/reports" className="underline">Statutory deductions report</Link>. Changing these settings makes calculated payroll months stale until they are recalculated.
       </Alert>
+
+      <Card
+        title="PF / ESI wage band"
+        actions={<Checkbox label="Use the wage band" checked={s.wageBand.enabled} onChange={(e) => setS({ ...s, wageBand: { ...s.wageBand, enabled: e.target.checked } })} />}
+      >
+        <div className="grid gap-4 sm:grid-cols-[220px_1fr] sm:items-end">
+          <NumField id="band" label="Monthly gross threshold (₹)" value={s.wageBand.threshold} onChange={(v) => setS({ ...s, wageBand: { ...s.wageBand, threshold: v } })} />
+          <p className="pb-2 text-sm text-muted">
+            Gross (the ESI wage components) <strong>at or below ₹{s.wageBand.threshold ?? '—'}</strong>: ESI is deducted and PF is not. <strong>Above it</strong>: PF is deducted and ESI is not. The threshold replaces the ESI eligibility limit while the band is on.
+          </p>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+          <Button variant="secondary" loading={standard.isPending} onClick={() => standard.mutate()}>
+            Apply standard PF &amp; ESI with this band
+          </Button>
+          <span className="text-xs text-muted">Sets PF 12% + 12% of basic (ceiling ₹15,000), ESI 0.75% + 3.25% of gross, records you as confirming them, and creates the PF / ESI deductions (an existing “12% of basic” PF component is switched to the statutory formula).</span>
+        </div>
+      </Card>
 
       <Card title="Confirmation">
         <div className="grid gap-4 sm:grid-cols-3">

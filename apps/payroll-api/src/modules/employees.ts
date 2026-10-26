@@ -19,9 +19,10 @@ import {
 } from '@nexzi/server-core';
 import { prisma, Prisma } from '../db';
 import { audit } from '../audit';
+import { assertValidManager } from '../organization/routes';
 import { EMPLOYEE_CODE_RE, IMPORT_FIELDS, suggestMapping, validateImportRows, type ColumnMapping } from './employee-import';
 
-const employeeInclude = { department: { select: { id: true, name: true } }, designation: { select: { id: true, name: true } } } satisfies Prisma.EmployeeInclude;
+const employeeInclude = { department: { select: { id: true, name: true } }, designation: { select: { id: true, name: true } }, manager: { select: { id: true, fullName: true, employeeCode: true } } } satisfies Prisma.EmployeeInclude;
 type EmployeeRow = Prisma.EmployeeGetPayload<{ include: typeof employeeInclude }>;
 
 export function serializeEmployee(e: EmployeeRow) {
@@ -36,6 +37,10 @@ export function serializeEmployee(e: EmployeeRow) {
     status: e.status,
     contactEmail: e.contactEmail,
     contactPhone: e.contactPhone,
+    manager: e.manager,
+    panNumber: e.panNumber,
+    uanNumber: e.uanNumber,
+    pfNumber: e.pfNumber,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
   };
@@ -58,6 +63,10 @@ const employeeBody = z
       .nullable()
       .optional()
       .or(z.literal('').transform(() => null)),
+    managerId: z.string().uuid().nullable().optional(),
+    panNumber: z.string().trim().toUpperCase().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Enter a 10-character PAN like ABCDE1234F.').nullable().optional().or(z.literal('').transform(() => null)),
+    uanNumber: z.string().trim().regex(/^\d{12}$/, 'The UAN has 12 digits.').nullable().optional().or(z.literal('').transform(() => null)),
+    pfNumber: z.string().trim().toUpperCase().regex(/^[A-Z0-9/]{5,30}$/, 'Use letters, digits and "/" (5–30 characters).').nullable().optional().or(z.literal('').transform(() => null)),
   })
   .superRefine((v, ctx) => {
     if (v.exitDate && v.exitDate < v.joiningDate) ctx.addIssue({ code: 'custom', path: ['exitDate'], message: 'Exit date cannot be before the joining date.' });
@@ -313,6 +322,7 @@ export function registerEmployeeRoutes(r: ApiRegistry) {
     handler: async ({ body, user, ip }) => {
       const dup = await prisma.employee.findFirst({ where: { employeeCode: { equals: body.employeeCode, mode: 'insensitive' } } });
       if (dup) throw new AppError('CONFLICT', `Employee ID "${body.employeeCode}" already exists.`, { fields: [{ path: 'employeeCode', message: 'This Employee ID is already used.' }] });
+      await assertValidManager(null, body.managerId);
       const created = await prisma.employee.create({ data: { ...body, createdById: user.id, updatedById: user.id }, include: employeeInclude });
       const out = serializeEmployee(created);
       await audit.write({ actorId: user.id, action: 'employee.created', entity: 'employee', entityId: created.id, after: out, ip });
@@ -352,6 +362,7 @@ export function registerEmployeeRoutes(r: ApiRegistry) {
         const dup = await prisma.employee.findFirst({ where: { employeeCode: { equals: body.employeeCode, mode: 'insensitive' }, id: { not: existing.id } } });
         if (dup) throw new AppError('CONFLICT', `Employee ID "${body.employeeCode}" already exists.`, { fields: [{ path: 'employeeCode', message: 'This Employee ID is already used.' }] });
       }
+      await assertValidManager(existing.id, body.managerId);
       const updated = await prisma.employee.update({ where: { id: params.id }, data: { ...body, exitDate: body.exitDate ?? null, updatedById: user.id }, include: employeeInclude });
       const out = serializeEmployee(updated);
       await audit.write({ actorId: user.id, action: 'employee.updated', entity: 'employee', entityId: params.id, ...diff(serializeEmployee(existing), out), ip });

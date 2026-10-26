@@ -354,6 +354,11 @@ function EmployeeDetail({ runId, employeeId, onClose }: { runId: string; employe
               { label: 'Net pay', value: <strong>{formatMoney(d.net)}</strong> },
             ]}
           />
+          {d.gross !== null && (
+            <Link href={`/explainer?runId=${runId}&employeeId=${employeeId}`} className="inline-flex items-center gap-1 text-sm font-medium text-cobalt hover:underline">
+              Explain every amount and verify it →
+            </Link>
+          )}
           {d.exceptions.map((x, i) => (
             <Alert key={i} tone={x.severity === 'ERROR' ? 'danger' : 'warning'}>
               {x.message}
@@ -499,7 +504,7 @@ function Payslips({ run }: { run: RunDetail }) {
           },
         ]}
       />
-      <p className="px-4 py-3 text-xs text-muted">Payslip layout is an internal provisional format until the client&apos;s approved payslip template is supplied.</p>
+      <p className="px-4 py-3 text-xs text-muted">Payslips use the company logo, colours and address from Payroll settings → Payslip branding, and show employer PF / ESI and gratuity.</p>
     </>
   );
 }

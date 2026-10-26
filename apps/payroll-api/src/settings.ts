@@ -7,6 +7,38 @@ import { DEFAULT_STATUTORY, statutorySchema } from './statutory/rules';
 /** Monthly totals derived from the daily attendance register (see analytics/routes.ts). */
 export const ATTENDANCE_TOTALS = ['present_days', 'absent_days', 'leave_days', 'late_days', 'worked_hours', 'overtime_hours'] as const;
 
+const hexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use a colour like #1e40af.');
+const componentCodes = z.array(z.string().min(1).max(40)).max(50);
+
+/**
+ * Salary structure template: turns one monthly gross figure into an employee's component values,
+ * so salaries are generated rather than typed component by component.
+ *  - PERCENT_OF_GROSS: FIXED component = value % of the monthly gross
+ *  - AMOUNT:           FIXED component = value (e.g. a flat professional tax)
+ *  - RATE:             PERCENTAGE component, value = its rate (blank = the component's default)
+ *  - BALANCE:          FIXED earning that takes whatever is left of the gross (one at most)
+ */
+export const salaryTemplateSchema = z.object({
+  enabled: z.boolean(),
+  lines: z
+    .array(z.object({ code: z.string().trim().min(1).max(40), method: z.enum(['PERCENT_OF_GROSS', 'AMOUNT', 'RATE', 'BALANCE']), value: z.number().min(0).max(1_000_000_000).nullable() }))
+    .max(30),
+});
+export type SalaryTemplate = z.infer<typeof salaryTemplateSchema>;
+
+/** Company details, logo and colours printed on payslips and Form 16. */
+export const brandingSchema = z.object({
+  companyName: z.string().trim().max(160).nullable(),
+  address: z.string().trim().max(400).nullable(),
+  /** PNG/JPEG/SVG data URL (kept small: it is embedded in every PDF). null = the built-in logo. */
+  logoDataUrl: z.string().max(700_000).regex(/^data:image\/(png|jpeg|svg\+xml);base64,[A-Za-z0-9+/=]+$/, 'Upload a PNG, JPEG or SVG image.').nullable(),
+  primaryColor: hexColour,
+  accentColor: hexColour,
+  employerPan: z.string().trim().max(10).nullable(),
+  employerTan: z.string().trim().max(10).nullable(),
+});
+export type Branding = z.infer<typeof brandingSchema>;
+
 export const settingsSchema = z.object({
   rounding: z.object({
     scale: z.number().int().min(0).max(4),
@@ -60,6 +92,16 @@ export const settingsSchema = z.object({
   }),
   /** Attendance to payroll: which monthly input column receives each attendance register total. */
   attendancePayrollMap: z.array(z.object({ source: z.enum(ATTENDANCE_TOTALS), inputKey: z.string().trim().min(1).max(40) })).max(ATTENDANCE_TOTALS.length),
+  /** Generates salary versions from a monthly gross (see salaryTemplateSchema). */
+  salaryTemplate: salaryTemplateSchema,
+  /**
+   * Pro-rates FIXED earnings by days payable ÷ days in the month. Days payable = days employed in
+   * the month (joining / exit dates) − loss-of-pay days from the input mapped to unpaid leave.
+   */
+  proration: z.object({ enabled: z.boolean() }),
+  /** Gratuity accrual shown on payslips as an employer cost (never deducted from net pay). */
+  gratuity: z.object({ enabled: z.boolean(), ratePercent: z.number().min(0).max(100), baseComponents: componentCodes }),
+  branding: brandingSchema,
   /** Anomaly alert thresholds (change request A). Placeholders until agreed with the client. */
   anomalyRules: z.object({
     enabled: z.boolean(),
@@ -101,6 +143,20 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
     ],
   },
   attendancePayrollMap: [],
+  salaryTemplate: {
+    enabled: true,
+    lines: [
+      { code: 'BASIC', method: 'PERCENT_OF_GROSS', value: 50 },
+      { code: 'HRA', method: 'RATE', value: 40 },
+      { code: 'PT', method: 'AMOUNT', value: 200 },
+      { code: 'SPECIAL', method: 'BALANCE', value: null },
+    ],
+  },
+  // Off by default so existing calculations do not change; switch on in Payroll settings → Salary structure.
+  proration: { enabled: false },
+  // 15 days' wages per year of service on a 26-day month = 15 / 26 / 12 ≈ 4.81% of basic per month.
+  gratuity: { enabled: true, ratePercent: 4.81, baseComponents: ['BASIC'] },
+  branding: { companyName: null, address: null, logoDataUrl: null, primaryColor: '#23205f', accentColor: '#6a4cf5', employerPan: null, employerTan: null },
   inputMappings: { unpaidLeaveDays: null, advanceRecovery: null, bonus: null, incentive: null },
   emailNotifications: { reviewRequests: true, readyToFinalise: true, payslipsAvailable: true, leaveDecisions: true, attendanceAlerts: false },
 };

@@ -28,6 +28,15 @@ import { registerCalendarNotificationRoutes } from './calendar/routes';
 import { registerEmployeeWorkforceDetailsRoutes } from './workforce/details';
 import { registerClientRoutes } from './clients/routes';
 import { registerAnalyticsRoutes } from './analytics/routes';
+import { registerSalaryTemplateRoutes } from './modules/salary-template';
+import { registerAutoPayrollRoutes } from './payroll/auto';
+import { registerOrganizationRoutes } from './organization/routes';
+import { registerForm16Routes } from './form16/routes';
+import { registerSimulatorRoutes } from './insights/simulator';
+import { registerExplainerRoutes } from './insights/explainer';
+import { registerFraudRoutes } from './insights/fraud';
+import { registerPolicyLabRoutes } from './insights/policy-lab';
+import { registerReadinessRoutes } from './insights/readiness';
 
 export const logger = createLogger('payroll-api', config.LOG_LEVEL);
 
@@ -76,6 +85,8 @@ export function createApp() {
       registerMasterRoutes(r);
       registerEmployeeRoutes(r);
       registerSalaryRoutes(r);
+      registerSalaryTemplateRoutes(r);
+      registerAutoPayrollRoutes(r);
       registerPayrollRoutes(r);
       registerOutputRoutes(r);
       registerAnomalyRoutes(r);
@@ -95,6 +106,13 @@ export function createApp() {
       registerClientRoutes(r);
       registerCalendarNotificationRoutes(r);
       registerAnalyticsRoutes(r);
+      registerOrganizationRoutes(r);
+      registerForm16Routes(r);
+      registerSimulatorRoutes(r);
+      registerExplainerRoutes(r);
+      registerFraudRoutes(r);
+      registerPolicyLabRoutes(r);
+      registerReadinessRoutes(r);
     },
     meExtras: async (userId) => ({
       app: 'payroll',
