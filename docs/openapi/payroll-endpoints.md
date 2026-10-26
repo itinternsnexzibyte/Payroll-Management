@@ -7,7 +7,7 @@
 | Auth | `GET` | `/auth/signup/config` | Whether self-service sign-up is available | public |
 | Auth | `POST` | `/auth/signup/start` | Step 1: send a 6-digit verification code to the email address | public |
 | Auth | `POST` | `/auth/signup/verify` | Step 2: check the code; returns a short-lived sign-up token | public |
-| Auth | `POST` | `/auth/signup/complete` | Step 3: set name and password and create the account (Payroll User, or an Administrator request awaiting approval) | public |
+| Auth | `POST` | `/auth/signup/complete` | Step 3: set name and password and create the account (Employee self-service, or an Administrator request awaiting approval) | public |
 | Users & Roles | `GET` | `/users` | List users | users.manage |
 | Users & Roles | `POST` | `/users` | Create a user with a temporary password (must be changed at first sign-in) | users.manage |
 | Users & Roles | `PUT` | `/users/{id}` | Update a user (name, role, status) | users.manage |

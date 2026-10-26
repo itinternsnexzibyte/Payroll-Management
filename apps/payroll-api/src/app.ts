@@ -51,8 +51,10 @@ export function createApp() {
     requireApproval: config.SIGNUP_REQUIRE_APPROVAL,
     allowedDomains: config.SIGNUP_ALLOWED_DOMAINS,
     adminSignup: config.ADMIN_SIGNUP,
-    // Self-registered accounts get the Payroll User role; Administrator requests wait for approval.
-    roles: { user: 'PAYROLL_USER', admin: 'ADMIN' },
+    // Self-registered accounts get the Employee (self-service) role, so they see only their own
+    // records once an administrator links them to an employee. Staff are promoted to Payroll User
+    // in Users. Administrator requests wait for approval.
+    roles: { user: 'EMPLOYEE', admin: 'ADMIN' },
   };
   const signup = new SignupService(signupStore, mailer, audit, signupConfig);
   return createBaseApp({
