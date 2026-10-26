@@ -1,7 +1,7 @@
-# Statutory deductions, bank salary file and attendance sync
+# Statutory deductions, bank salary file and attendance to payroll
 
-Three modules added on 16 Oct 2026. Each one is **off until someone configures it**. None of them
-contains a statutory rate, a bank's file format or an attendance application's field names. Those
+Modules added on 16 Oct 2026. Each one is **off until someone configures it**. None of them
+contains a statutory rate or a bank's file format. Those
 facts change, and they differ by client, so the payroll team enters them and the application
 records who confirmed them.
 
@@ -108,59 +108,22 @@ These are new permissions. Administrators get them automatically; no other role 
 - **CSV format:** UTF-8 without a byte-order mark, CRLF line endings. Cells are quoted when needed, and cells that start with `=`, `+`, `-` or `@` are neutralised.
 - **The default layout is generic.** Set the columns exactly as your bank's bulk-payment format specifies, and test a file with the bank before the first live upload.
 
-## 3. Live attendance sync
+## 3. Attendance to payroll
 
-**Where:** Configuration → **Attendance sync** (`integrations.manage`).
+**Where:** Configuration → **Attendance to payroll** (`attendance.view`).
 
-### How it works
+- The page totals the daily attendance register for a month: present, absent, leave and late
+  days, worked and overtime hours.
+- **Column mapping** (administrators, `settings.manage`) chooses the monthly input column that
+  receives each total. Totals left as *Not used* are not written.
+- **Apply to payroll inputs** (`payroll.input`) writes the mapped totals into a Draft or Calculated
+  payroll month through the same validation as the input grid. Locked months stay locked.
+- Applying writes `attendance.applied_from_register` to the audit log; changing the mapping writes
+  `attendance.payroll_mapping_updated`.
 
-1. **Create an API key** and give it to whoever configures the attendance application.
-   - The key is shown once.
-   - Only its SHA-256 hash is stored.
-   - It can be revoked at any time.
-2. **Map fields:** each attendance field name, for example `present_days`, goes to a payroll input column, for example *Days worked*.
-3. **Switch on** *Accept attendance*. Optionally switch on *Apply straight away*.
-4. **The attendance application sends** each month's data:
-
-   ```http
-   POST /integrations/attendance
-   Authorization: Bearer nzatt_xxxxxxxx.<secret>
-   Content-Type: application/json
-
-   { "batchId": "2026-10-run-1", "year": 2026, "month": 10,
-     "records": [ { "employeeCode": "E-001", "values": { "present_days": 22, "lop_days": 1 } } ] }
-   ```
-
-   | Response | Meaning |
-   |---|---|
-   | 202 | Received |
-   | 401 | Missing, unknown or revoked key |
-   | 409 | Sync is switched off |
-   | 400 | Invalid body |
-
-   A repeated `batchId` is accepted only once; repeating it returns the original result. One request can carry up to 5,000 employees.
-
-5. **Received batches** are listed with their status:
-
-   | Status | Meaning |
-   |---|---|
-   | Waiting to apply | Received, not yet written to payroll |
-   | Applied | Every value was written |
-   | Applied with problems | Some values were written, some were refused |
-   | Not applied | Nothing could be written |
-
-   **Review** shows exactly which cells applying would write. It also lists unknown employees and fields that are not mapped. **Apply to payroll** writes the values. It needs `payroll.input` as well as `integrations.manage`.
-
-### Safeguards
-
-- **Same validation as the grid:** values are written through the monthly-input validation, so they get the same number formats and minimum/maximum checks as typing them in. A calculated run goes back to draft.
-- **Locked months stay locked:** attendance is never applied to a month that is under review, approved or finalised. The batch stays *Waiting to apply* and shows the reason.
-- **Inbound only:** the payroll application makes **no outbound calls**. The attendance application sends data to it.
-- **Cookie sessions keep CSRF protection:** this endpoint is exempt from the browser Origin check only when it carries a `Bearer` key. Browsers cannot attach that header cross-site.
-- **Audit:**
-  - receiving a batch writes `attendance.received`;
-  - applying writes `attendance.applied`;
-  - key changes write `integration_key.created` and `integration_key.revoked`.
+The live attendance sync API (`POST /integrations/attendance`, API keys and received batches) was
+removed on 26 Oct 2026. Migration `20261026140000_remove_attendance_sync` moves its field mapping to
+the Attendance to payroll mapping and drops the `integration_keys` and `attendance_batches` tables.
 
 ## Database
 
@@ -171,14 +134,10 @@ Migration `20261016180000_statutory_bank_attendance` adds:
   - the account number is stored encrypted;
   - check constraints on the format of the last four digits and of the encrypted value.
 - `bank_exports`: append-only, enforced by a trigger.
-- `integration_keys`: only the hash of each key is stored.
-- `attendance_batches`:
-  - unique per key and `batchId`;
-  - check constraints on month and status.
 
-The statutory, bank-layout and attendance-sync settings are stored in `payroll_settings`.
+The statutory, bank-layout and attendance-to-payroll settings are stored in `payroll_settings`.
 
 ## Tests
 
-- **Integration tests:** `test/integration/statutory-bank-attendance.test.ts` (19 tests).
+- **Integration tests:** `test/integration/statutory-bank-attendance.test.ts` (13 tests); attendance to payroll in `test/integration/analytics.test.ts`.
 - **Unit tests:** `test/unit/statutory-bank.test.ts` (6 tests) covers the tax slabs, the rebate, blocking while a section is off, payment-date formats and CSV escaping.

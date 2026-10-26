@@ -141,13 +141,9 @@
 | Attendance | `POST` | `/attendance-records` | Create or update an employee attendance record for one day | attendance.manage |
 | Attendance | `PUT` | `/attendance-records/{id}` | Edit an employee daily attendance record | attendance.manage |
 | Attendance | `DELETE` | `/attendance-records/{id}` | Delete an employee daily attendance record | attendance.manage |
-| Integrations | `POST` | `/integrations/attendance` | Receive monthly attendance from the attendance application (API key: Authorization: Bearer nzatt_…) | public |
-| Integrations | `GET` | `/attendance-sync` | Attendance sync settings, API keys and recent batches | integrations.manage |
-| Integrations | `PUT` | `/attendance-sync/settings` | Switch attendance sync on/off, choose auto-apply and map attendance fields to input columns | integrations.manage |
-| Integrations | `POST` | `/attendance-sync/keys` | Create an API key for the attendance application (the key is shown only once) | integrations.manage |
-| Integrations | `POST` | `/attendance-sync/keys/{id}/revoke` | Revoke an attendance API key | integrations.manage |
-| Integrations | `GET` | `/attendance-sync/batches/{id}` | A received batch with a preview of the values it writes (nothing is changed) | integrations.manage |
-| Integrations | `POST` | `/attendance-sync/batches/{id}/apply` | Write a received batch into its payroll month (Draft or Calculated payroll only) | integrations.manage |
+| Attendance | `GET` | `/attendance-records/payroll-summary` | Preview monthly attendance figures (present, absent, leave, late days, worked and overtime hours) for a payroll month | attendance.view |
+| Attendance | `POST` | `/attendance-records/apply-to-payroll` | Write the monthly attendance figures into a Draft or Calculated payroll month using the attendance-to-payroll column mapping | payroll.input (and attendance.view) |
+| Attendance | `PUT` | `/attendance-records/payroll-mapping` | Choose which monthly input column receives each attendance total | settings.manage |
 | Workforce | `GET` | `/assignments` | List employee assignments and submission history | workforce.view |
 | Workforce | `POST` | `/assignments` | Assign work to an active employee | workforce.manage |
 | Workforce | `PUT` | `/assignments/{id}` | Update an assignment or close/reopen submissions | workforce.manage |

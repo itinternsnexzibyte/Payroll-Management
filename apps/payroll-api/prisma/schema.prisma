@@ -1059,46 +1059,6 @@ model BankExport {
   @@map("bank_exports")
 }
 
-/// API key for a server-to-server integration (attendance application). Only a hash is stored.
-model IntegrationKey {
-  id          String            @id @default(uuid()) @db.Uuid
-  name        String
-  prefix      String            @unique
-  keyHash     String
-  createdById String            @db.Uuid
-  createdAt   DateTime          @default(now())
-  lastUsedAt  DateTime?
-  revokedAt   DateTime?
-  batches     AttendanceBatch[]
-
-  @@map("integration_keys")
-}
-
-/// Attendance data received from the attendance application for one payroll month.
-model AttendanceBatch {
-  id           String          @id @default(uuid()) @db.Uuid
-  keyId        String?         @db.Uuid
-  key          IntegrationKey? @relation(fields: [keyId], references: [id], onDelete: Restrict)
-  /// Sender's batch identifier; the same identifier is accepted only once per key
-  externalId   String?
-  year         Int
-  month        Int
-  /// RECEIVED | APPLIED | PARTIAL | FAILED
-  status       String          @default("RECEIVED")
-  recordCount  Int
-  appliedCount Int             @default(0)
-  records      Json
-  errors       Json            @default("[]")
-  payrollRunId String?         @db.Uuid
-  receivedAt   DateTime        @default(now())
-  appliedAt    DateTime?
-  appliedById  String?         @db.Uuid
-
-  @@unique([keyId, externalId])
-  @@index([year, month])
-  @@map("attendance_batches")
-}
-
 model EmployeeWorkforceProfile {
   employeeId      String   @id @db.Uuid
   employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)

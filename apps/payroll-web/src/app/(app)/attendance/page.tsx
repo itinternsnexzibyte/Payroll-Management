@@ -88,8 +88,8 @@ export default function AttendanceRecordsPage() {
     <RequirePermission permission="attendance.view">
       <PageHeader
         title="Daily attendance"
-        description="Review and maintain daily employee attendance. These records are separate from attendance sync and do not change payroll inputs automatically."
-        breadcrumbs={[{ label: 'Attendance sync', href: '/attendance-sync' }, { label: 'Daily attendance' }]}
+        description="Review and maintain daily employee attendance. These records do not change payroll inputs automatically; use Attendance to payroll to apply a month's totals."
+        breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Daily attendance' }]}
       />
       <AttendanceRegister />
       {can('attendance.manage') && <AttendanceAccessRequests />}

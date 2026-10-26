@@ -59,4 +59,27 @@ describe('daily attendance to payroll inputs', () => {
     expect(res.status).toBe(404);
   });
 
+  it('saves the column mapping for administrators only, with known numeric columns', async () => {
+    const put = (a: Agent, fieldMap: object[]) => a.put('/attendance-records/payroll-mapping').set('Origin', ORIGIN).send({ fieldMap });
+    for (const key of ['PRESENT_DAYS', 'ABSENT_DAYS']) await prisma.payrollInputDefinition.create({ data: { key, label: key, dataType: 'NUMBER' } });
+    expect((await put(user, [{ source: 'present_days', inputKey: 'PRESENT_DAYS' }])).status).toBe(403);
+    expect((await put(admin, [{ source: 'present_days', inputKey: 'NOPE' }])).status).toBe(400);
+    expect((await put(admin, [{ source: 'not_a_total', inputKey: 'PRESENT_DAYS' }])).status).toBe(400);
+    expect((await put(admin, [{ source: 'present_days', inputKey: 'PRESENT_DAYS' }, { source: 'present_days', inputKey: 'ABSENT_DAYS' }])).status).toBe(400);
+    const ok = await put(admin, [{ source: 'present_days', inputKey: 'PRESENT_DAYS' }, { source: 'absent_days', inputKey: 'ABSENT_DAYS' }]);
+    expect(ok.status).toBe(200);
+    const summary = await admin.get('/attendance-records/payroll-summary?year=2026&month=10');
+    expect(summary.body.fieldMap).toEqual([{ source: 'present_days', inputKey: 'PRESENT_DAYS' }, { source: 'absent_days', inputKey: 'ABSENT_DAYS' }]);
+  });
+
+  it('writes the mapped totals into the payroll month', async () => {
+    const run = await admin.post('/payroll-runs').set('Origin', ORIGIN).send({ year: 2026, month: 10 });
+    expect(run.status).toBe(201);
+    const res = await admin.post('/attendance-records/apply-to-payroll').set('Origin', ORIGIN).send({ year: 2026, month: 10 });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ saved: 2, errors: [] });
+    const inputs = await prisma.payrollInput.findMany({ where: { payrollRunId: run.body.id, employeeId }, orderBy: { inputKey: 'asc' } });
+    expect(inputs.map((i) => [i.inputKey, i.value])).toEqual([['ABSENT_DAYS', '1'], ['PRESENT_DAYS', '2']]);
+  });
+
 });

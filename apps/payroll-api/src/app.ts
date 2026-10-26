@@ -59,11 +59,10 @@ export function createApp() {
     name: 'Payroll Management',
     version: '0.1.0',
     description:
-      'REST API for the NexziByte Payroll Management application. All endpoints except /auth/login, sign-up, /health and /ready require the session cookie, and permissions are enforced on every request. The attendance application sends data to /integrations/attendance with an API key (Authorization: Bearer) instead of a session.',
+      'REST API for the NexziByte Payroll Management application. All endpoints except /auth/login, sign-up, /health and /ready require the session cookie, and permissions are enforced on every request.',
     logger,
     allowedOrigins: config.ALLOWED_ORIGINS,
     beforeRequest: process.env.VERCEL ? () => prepareDatabase(logger) : undefined,
-    keyAuthPrefixes: ['/integrations/'],
     auth,
     cookieName: COOKIE_NAME,
     publicApiPrefix: config.PUBLIC_API_PREFIX,
