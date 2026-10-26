@@ -157,6 +157,9 @@ describe('bank details and bank salary file', () => {
     const items = (await admin.get('/bank/accounts')).body.items as { employeeCode: string; bank: { accountNumberMasked: string; enteredByEmployee: boolean } | null }[];
     expect(items.find((i) => i.employeeCode === 'E-SELF')!.bank).toMatchObject({ accountNumberMasked: '•••• 7777', enteredByEmployee: true });
     expect(items.find((i) => i.employeeCode === 'E-1')!.bank).toMatchObject({ enteredByEmployee: false });
+    // Former employees without an account on file cannot be paid, so they are not listed.
+    await prisma.employee.create({ data: { employeeCode: 'E-GONE', fullName: 'Former Employee', joiningDate: new Date('2024-01-01T00:00:00Z'), status: 'INACTIVE' } });
+    expect(((await admin.get('/bank/accounts')).body.items as { employeeCode: string }[]).some((i) => i.employeeCode === 'E-GONE')).toBe(false);
     // Self-service reaches only the linked employee's own account.
     expect((await me.get('/bank/accounts')).status).toBe(403);
     expect((await put(me, `/employees/${emp.a}/bank`, { accountHolder: 'X', accountNumber: '123456', ifsc: 'ABCD0123456' })).status).toBe(403);
