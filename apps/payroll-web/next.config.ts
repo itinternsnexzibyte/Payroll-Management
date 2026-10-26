@@ -41,7 +41,6 @@ const nextConfig: NextConfig = {
   experimental: { externalDir: true },
   eslint: { ignoreDuringBuilds: true },
   async rewrites() {
-    if (process.env.VERCEL) return [];
     return [{ source: '/api/:path*', destination: `${apiOrigin(process.env.API_INTERNAL_URL)}/:path*` }];
   },
   async headers() {
