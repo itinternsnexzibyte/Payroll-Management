@@ -4,6 +4,9 @@ import { prisma, type Tx } from './db';
 import { DEFAULT_ANOMALY_RULES } from './anomalies/rules';
 import { DEFAULT_STATUTORY, statutorySchema } from './statutory/rules';
 
+/** Monthly totals derived from the daily attendance register (see analytics/routes.ts). */
+export const ATTENDANCE_TOTALS = ['present_days', 'absent_days', 'leave_days', 'late_days', 'worked_hours', 'overtime_hours'] as const;
+
 export const settingsSchema = z.object({
   rounding: z.object({
     scale: z.number().int().min(0).max(4),
@@ -55,13 +58,8 @@ export const settingsSchema = z.object({
     /** Date format for PAYMENT_DATE. */
     dateFormat: z.enum(['DD/MM/YYYY', 'DD-MM-YYYY', 'YYYY-MM-DD', 'DDMMYYYY']),
   }),
-  /** Live attendance sync: maps the attendance application's fields to monthly input columns. */
-  attendanceSync: z.object({
-    enabled: z.boolean(),
-    /** Apply received data to the payroll run immediately (Draft/Calculated runs only). */
-    autoApply: z.boolean(),
-    fieldMap: z.array(z.object({ source: z.string().trim().min(1).max(60), inputKey: z.string().trim().min(1).max(40) })).max(30),
-  }),
+  /** Attendance to payroll: which monthly input column receives each attendance register total. */
+  attendancePayrollMap: z.array(z.object({ source: z.enum(ATTENDANCE_TOTALS), inputKey: z.string().trim().min(1).max(40) })).max(ATTENDANCE_TOTALS.length),
   /** Anomaly alert thresholds (change request A). Placeholders until agreed with the client. */
   anomalyRules: z.object({
     enabled: z.boolean(),
@@ -102,7 +100,7 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
       { header: 'Narration', field: 'PERIOD', value: null },
     ],
   },
-  attendanceSync: { enabled: false, autoApply: false, fieldMap: [] },
+  attendancePayrollMap: [],
   inputMappings: { unpaidLeaveDays: null, advanceRecovery: null, bonus: null, incentive: null },
   emailNotifications: { reviewRequests: true, readyToFinalise: true, payslipsAvailable: true, leaveDecisions: true, attendanceAlerts: false },
 };

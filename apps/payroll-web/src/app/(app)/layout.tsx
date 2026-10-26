@@ -1,6 +1,6 @@
 'use client';
 import { Suspense } from 'react';
-import { ArrowLeftRight, Banknote, BarChart3, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardList, FileSpreadsheet, FileText, Gift, HandCoins, Landmark, LayoutDashboard, LineChart, RadioTower, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, Users, UsersRound, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Banknote, BarChart3, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardList, FileSpreadsheet, FileText, Gift, HandCoins, Landmark, LayoutDashboard, LineChart, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, Users, UsersRound, Wallet } from 'lucide-react';
 import { SearchPalette } from '@/components/search-palette';
 import { AppShell, BrandMark, Spinner, useAuth, type NavItem } from '@nexzi/ui';
 
@@ -27,7 +27,6 @@ const NAV: NavItem[] = [
   { label: 'Salary components', href: '/salary-components', icon: Wallet, permission: ['salary.view', 'settings.manage'], section: 'Configuration' },
   { label: 'Payroll settings', href: '/settings', icon: Settings2, permission: 'settings.manage', section: 'Configuration' },
   { label: 'Statutory deductions', href: '/statutory', icon: Landmark, permission: 'settings.manage', section: 'Configuration' },
-  { label: 'Attendance sync', href: '/attendance-sync', icon: RadioTower, permission: 'integrations.manage', section: 'Configuration' },
   { label: 'Attendance records', href: '/attendance', icon: CalendarDays, permission: 'attendance.view', section: 'Configuration' },
   { label: 'Attendance to payroll', href: '/attendance/payroll', icon: CalendarCheck2, permission: 'attendance.view', section: 'Configuration' },
   { label: 'Departments', href: '/settings/masters', icon: Building2, permission: ['settings.manage', 'employees.manage'], section: 'Configuration' },

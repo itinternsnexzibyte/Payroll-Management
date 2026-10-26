@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Card, EmptyState, ErrorState, Field, Input, PageHeader, RequirePermission, Spinner, errorMessage, get, post, qs, useToast } from '@nexzi/ui';
+import { Alert, Button, Card, EmptyState, ErrorState, Field, Input, PageHeader, RequirePermission, Select, Spinner, errorMessage, get, post, put, qs, useAuth, useToast } from '@nexzi/ui';
+import { useInputDefinitions } from '@/lib/hooks';
 
 interface Row {
   employeeId: string;
@@ -15,12 +16,23 @@ interface Row {
   overtime_hours: number;
   hasRecords: boolean;
 }
+type Total = 'present_days' | 'absent_days' | 'leave_days' | 'late_days' | 'worked_hours' | 'overtime_hours';
+type FieldMap = { source: Total; inputKey: string }[];
 interface Summary {
   period: string;
   run: { id: string; status: string } | null;
-  fieldMap: { source: string; inputKey: string }[];
+  fieldMap: FieldMap;
   rows: Row[];
 }
+
+const TOTALS: { source: Total; label: string }[] = [
+  { source: 'present_days', label: 'Present days' },
+  { source: 'absent_days', label: 'Absent days' },
+  { source: 'leave_days', label: 'Leave days' },
+  { source: 'late_days', label: 'Late days' },
+  { source: 'worked_hours', label: 'Worked hours' },
+  { source: 'overtime_hours', label: 'Overtime hours' },
+];
 
 export default function AttendanceToPayrollPage() {
   const now = new Date();
@@ -62,11 +74,7 @@ export default function AttendanceToPayrollPage() {
           <Card title={`${d.period} — ${d.rows.length} employees`}>
             {!d.run && <Alert tone="info">No payroll run exists for {d.period} yet. The figures below are a preview; create the run to apply them.</Alert>}
             {d.run && !editable && <Alert tone="warning">This payroll is {d.run.status.replace('_', ' ').toLowerCase()}, so attendance can no longer be applied.</Alert>}
-            {d.fieldMap.length === 0 && (
-              <Alert tone="info">
-                No attendance fields are mapped to payroll input columns yet. In Attendance sync, map present_days, absent_days, leave_days, late_days, worked_hours or overtime_hours.
-              </Alert>
-            )}
+            {d.fieldMap.length === 0 && <Alert tone="info">No attendance totals are mapped to payroll input columns yet. Choose the columns under Column mapping.</Alert>}
             {d.rows.length === 0 ? (
               <EmptyState title="No employees" />
             ) : (
@@ -109,7 +117,57 @@ export default function AttendanceToPayrollPage() {
             </div>
           </Card>
         )}
+        {d && <MappingCard initial={d.fieldMap} />}
       </div>
     </RequirePermission>
+  );
+}
+
+/** Which monthly input column receives each attendance total. Administrators edit it; others see it. */
+function MappingCard({ initial }: { initial: FieldMap }) {
+  const { can } = useAuth();
+  const editable = can('settings.manage');
+  const qc = useQueryClient();
+  const toast = useToast();
+  const inputs = useInputDefinitions();
+  const toState = (m: FieldMap) => Object.fromEntries(m.map((f) => [f.source, f.inputKey])) as Partial<Record<Total, string>>;
+  const [map, setMap] = useState(toState(initial));
+  useEffect(() => setMap(toState(initial)), [initial]);
+  const save = useMutation({
+    mutationFn: () => put('/attendance-records/payroll-mapping', { fieldMap: TOTALS.flatMap((t) => (map[t.source] ? [{ source: t.source, inputKey: map[t.source] }] : [])) }),
+    onSuccess: () => {
+      toast.success('Column mapping saved.');
+      qc.invalidateQueries({ queryKey: ['att-payroll'] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const columns = (inputs.data ?? []).filter((c) => c.active && c.dataType === 'NUMBER');
+  return (
+    <Card title="Column mapping">
+      <p className="mb-3 text-sm text-muted">Choose the monthly input column that receives each total. Totals left as “Not used” are not written to payroll.</p>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {TOTALS.map((t) => (
+          <Field key={t.source} label={t.label} htmlFor={`map-${t.source}`}>
+            <Select id={`map-${t.source}`} value={map[t.source] ?? ''} disabled={!editable} onChange={(e) => setMap({ ...map, [t.source]: e.target.value || undefined })}>
+              <option value="">Not used</option>
+              {columns.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label} ({c.key})
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ))}
+      </div>
+      {editable ? (
+        <div className="mt-4 flex justify-end">
+          <Button loading={save.isPending} onClick={() => save.mutate()}>
+            Save column mapping
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-muted">Only administrators can change the mapping.</p>
+      )}
+    </Card>
   );
 }

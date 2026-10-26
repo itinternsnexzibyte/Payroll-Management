@@ -9,7 +9,7 @@
 | Payslip and report layouts | Internal provisional layouts | Banner and watermark until `PAYSLIP_FORMAT_APPROVED=true` |
 | Real data | Only synthetic demo data in the development seed | The seed refuses demo data and dev accounts in production |
 | Statutory deductions | PF, ESI and TDS built but off: no rates are included; TDS is a monthly projection (no declarations, previous employment or arrears) | A section cannot be switched on without complete figures and a recorded confirmation; TDS override input; see docs/statutory-bank-attendance.md |
-| Bank file and attendance sync | The default bank layout is generic; attendance field names are unknown | Layout and field mapping are configurable; bank file only for finalised payroll; attendance never applied to submitted payroll |
+| Bank file and attendance to payroll | The default bank layout is generic | Bank layout and the attendance column mapping are configurable; bank file only for finalised payroll; attendance never applied to submitted payroll |
 | Proration, overtime, professional tax | Not implemented (out of scope until agreed) | Documented |
 | Historical months | Import of past payroll not built | Open question P11 |
 

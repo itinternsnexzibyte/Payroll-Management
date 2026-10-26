@@ -60,7 +60,7 @@
 | **Leave, advances, bonuses** | Leave types, requests, approvals and balances; loans and salary advances with monthly instalments and recovery tracking; bonuses and incentives approved by a second person. Approved amounts fill mapped payroll inputs (no formulas invented) |
 | **Self-service and email** | Employee accounts linked to an employee record see only their own payslips, details and leave; email notifications for approvals, payslips and leave decisions (no amounts in emails) |
 | **Inputs and register** | Monthly input template and CSV/XLSX import (attendance, unpaid leave, working days); monthly payroll register with every component per employee |
-| **Statutory, bank, attendance** | PF, ESI and TDS from rates the payroll team enters and confirms (none built in), with a statutory report; encrypted employee bank details and a bank salary file in the bank's own layout for finalised payroll; live attendance sync from the attendance application over an API key |
+| **Statutory, bank, attendance** | PF, ESI and TDS from rates the payroll team enters and confirms (none built in), with a statutory report; encrypted employee bank details and a bank salary file in the bank's own layout for finalised payroll; attendance register totals applied to monthly payroll inputs through a configurable column mapping |
 | **Access** | *Sign in as User* or *as Administrator* (checked on the server), lockout after repeated failures, self-service sign-up with an emailed 6-digit code as a User or as an Administrator request that an existing Administrator approves, roles with configurable permissions (Administrator, Payroll User, optional Viewer), append-only audit log |
 
 Change requests A, B and F are not in the original specification and await approval through the change-request process — see [docs/change-requests.md](docs/change-requests.md).
@@ -285,7 +285,7 @@ Full details: [docs/security.md](docs/security.md). No external security audit o
 | ✅ Implemented *(awaiting change-request approval)* | Payroll alerts (A), reconciliation (B), knowledge centre (F) |
 | ⏳ Blocked on client inputs | Client formulas and rounding from the workbook · reconciliation tests against real sample months · client-approved payslip and report layouts · agreed alert thresholds · final role matrix |
 | ✅ Implemented *(module list)* | Leave management, employee self-service, loans and advances, bonuses and incentives, email notifications, attendance file import, payroll register — see [docs/modules.md](docs/modules.md) |
-| ✅ Implemented, off until configured | Statutory deductions (PF, ESI, TDS) · bank salary file · live attendance sync — see [docs/statutory-bank-attendance.md](docs/statutory-bank-attendance.md) |
+| ✅ Implemented, off until configured | Statutory deductions (PF, ESI, TDS) · bank salary file · attendance to payroll — see [docs/statutory-bank-attendance.md](docs/statutory-bank-attendance.md) |
 | ⏳ Needs client confirmation before live use | Statutory rates and wage definitions (written confirmation) · the bank's bulk-payment format · the attendance application's field names |
 | 🗓️ Planned engineering | Build and smoke-test the Docker images · production deployment and backup schedule |
 | 💡 Proposed, not approved | Scenario simulator (C) · employee document centre (D) · AI payroll assistant (E) · operations and recovery centre (G) — see [docs/feature-gap-analysis.md](docs/feature-gap-analysis.md) |
