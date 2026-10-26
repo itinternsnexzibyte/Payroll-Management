@@ -10,7 +10,7 @@ WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY packages ./packages
 COPY apps/${APP}/package.json apps/${APP}/package.json
-RUN npm ci --workspace @nexzi/${APP} --include-workspace-root --ignore-scripts
+RUN npm ci --workspace @nexzi/${APP} --workspace @nexzi/ui --include-workspace-root --ignore-scripts
 COPY apps/${APP} ./apps/${APP}
 RUN npm run build -w @nexzi/${APP}
 
