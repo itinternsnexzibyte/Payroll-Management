@@ -25,7 +25,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && mkdir -p /var/lib/nexzi/storage && chown -R node:node /var/lib/nexzi
 WORKDIR /app
-COPY --from=build /repo/node_modules ./node_modules
+COPY --from=build --chown=node:node /repo/node_modules ./node_modules
 COPY --from=build /repo/apps/${APP}/package.json ./package.json
 COPY --from=build /repo/apps/${APP}/dist ./dist
 COPY --from=build /repo/apps/${APP}/generated ./generated
