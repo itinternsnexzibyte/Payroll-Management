@@ -32,8 +32,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               key={t.id}
               role={t.tone === 'error' ? 'alert' : 'status'}
               className={cn(
-                'pointer-events-auto flex items-start gap-3 rounded-lg border bg-white px-4 py-3 text-sm shadow-lg',
-                t.tone === 'success' ? 'border-success/30' : t.tone === 'error' ? 'border-danger/30' : 'border-haze/40',
+                'fx-toast pointer-events-auto flex items-start gap-3 rounded-xl border border-l-4 bg-white/95 px-4 py-3 text-sm shadow-[0_18px_40px_-18px_rgb(13_27_69/0.45)] backdrop-blur',
+                t.tone === 'success' ? 'border-success/30 border-l-success' : t.tone === 'error' ? 'border-danger/30 border-l-danger' : 'border-haze/40 border-l-secondary',
               )}
             >
               <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', t.tone === 'success' ? 'text-success' : t.tone === 'error' ? 'text-danger' : 'text-cobalt')} aria-hidden />
@@ -96,9 +96,9 @@ export function Dialog({ open, onClose, title, children, footer, width = 'md' }:
   if (!open) return null;
   const w = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-5xl' }[width];
   return (
-    <div className="no-print fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-primary/30 p-4 pt-[8vh] backdrop-blur-[1px]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className={cn('w-full rounded-xl border border-line bg-white shadow-2xl', w)}>
-        <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
+    <div className="fx-overlay no-print fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy/40 p-4 pt-[8vh] backdrop-blur-[3px]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className={cn('fx-dialog w-full overflow-hidden rounded-2xl border border-line bg-white shadow-[0_32px_64px_-24px_rgb(13_27_69/0.45)]', w)}>
+        <div className="flex items-center justify-between border-b border-line bg-gradient-to-r from-mist/60 to-white px-5 py-3.5">
           <h2 id={titleId} className="text-base font-semibold text-primary">
             {title}
           </h2>

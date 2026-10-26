@@ -125,8 +125,8 @@ export function Card({ className, children, title, actions, padded = true }: { c
   return (
     <section className={cn('fx-card fx-enter rounded-[var(--radius-card)] border border-line bg-white/95 shadow-[var(--shadow-card)] backdrop-blur-sm', className)}>
       {(title || actions) && (
-        <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
-          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">{title}</h2>
+        <header className="flex items-center justify-between gap-3 border-b border-line bg-gradient-to-r from-surface/80 to-white/0 px-5 py-3">
+          <h2 className="fx-card-title text-[15px] font-semibold tracking-[-0.01em] text-ink">{title}</h2>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </header>
       )}
@@ -175,8 +175,16 @@ const STATUS_TONES: Record<string, Tone> = {
   PREVIEWED: 'neutral',
 };
 
+/** States that are waiting on someone get a pulsing dot. */
+const LIVE_STATUSES = new Set(['UNDER_REVIEW', 'APPROVED', 'PENDING', 'CALCULATED']);
+
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  return <Badge tone={STATUS_TONES[status] ?? 'neutral'}>{label ?? status.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}</Badge>;
+  return (
+    <Badge tone={STATUS_TONES[status] ?? 'neutral'}>
+      <span className={cn('fx-dot', LIVE_STATUSES.has(status) && 'fx-dot--live')} aria-hidden />
+      {label ?? status.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
+    </Badge>
+  );
 }
 
 const alertStyles = {
@@ -201,11 +209,19 @@ export function Alert({ tone = 'info', title, children, className }: { tone?: ke
 
 export function Spinner({ label = 'Loading…', className }: { label?: string; className?: string }) {
   return (
-    <div className={cn('flex items-center justify-center gap-2 py-10 text-sm text-muted', className)} role="status">
-      <Loader2 className="h-5 w-5 animate-spin text-secondary" aria-hidden />
+    <div className={cn('fx-enter flex items-center justify-center gap-3 py-10 text-sm text-muted', className)} role="status">
+      <span className="relative flex h-6 w-6 items-center justify-center" aria-hidden>
+        <span className="absolute inset-0 rounded-full border-2 border-mist" />
+        <Loader2 className="h-6 w-6 animate-spin text-secondary" />
+      </span>
       {label}
     </div>
   );
+}
+
+/** Shimmering placeholder block for content that is loading. */
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cn('fx-skeleton rounded-md', className)} aria-hidden />;
 }
 
 export function KeyValue({ items, columns = 2 }: { items: { label: string; value: ReactNode }[]; columns?: 1 | 2 | 3 }) {

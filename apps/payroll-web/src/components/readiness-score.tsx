@@ -26,7 +26,7 @@ export function ScoreRing({ score, colour, size = 96 }: { score: number; colour:
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label={`Readiness ${score}%`}>
       <circle cx="50" cy="50" r={r} fill="none" stroke="#e3e7ef" strokeWidth="10" />
-      <circle cx="50" cy="50" r={r} fill="none" stroke={colour} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(score / 100) * c} ${c}`} transform="rotate(-90 50 50)" />
+      <circle className="fx-ring" cx="50" cy="50" r={r} fill="none" stroke={colour} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(score / 100) * c} ${c}`} transform="rotate(-90 50 50)" />
       <text x="50" y="56" textAnchor="middle" fontSize="22" fontWeight="700" fill="#1f2937">
         {score}%
       </text>

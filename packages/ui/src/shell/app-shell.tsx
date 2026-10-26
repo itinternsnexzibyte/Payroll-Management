@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ComponentType, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
-import { Bell, ChevronsLeft, ChevronsRight, KeyRound, LogOut, Menu, ShieldX, X } from 'lucide-react';
+import { Bell, ChevronDown, ChevronsLeft, ChevronsRight, KeyRound, LogOut, Menu, Search, ShieldX, X } from 'lucide-react';
 import { get } from '../lib/api';
 import { cn } from '../lib/format';
 import { Spinner } from '../components/primitives';
@@ -119,10 +119,13 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [navigating, setNavigating] = useState(false);
+  const [closedSections, setClosedSections] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     try {
       setCollapsed(localStorage.getItem('nx.sidebar') === '1');
+      setClosedSections(new Set(JSON.parse(localStorage.getItem('nx.sections') ?? '[]') as string[]));
     } catch {
       /* storage unavailable */
     }
@@ -145,6 +148,19 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
     if (destination.origin !== window.location.origin || (destination.pathname === pathname && destination.search === window.location.search)) return;
     setNavigating(true);
   };
+  const toggleSection = (section: string) => {
+    setClosedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      try {
+        localStorage.setItem('nx.sections', JSON.stringify([...next]));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
   const toggle = () => {
     setCollapsed((c) => {
       try {
@@ -165,6 +181,10 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
   const activeHref = visible.filter((n) => matches(n.href)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
   const isActive = (href: string) => href === activeHref;
   const sections = [...new Set(visible.map((n) => n.section ?? ''))];
+  const term = filter.trim().toLowerCase();
+  const shownIn = (section: string) => visible.filter((n) => (n.section ?? '') === section && (!term || n.label.toLowerCase().includes(term)));
+  const activeItem = visible.find((n) => n.href === activeHref);
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
   const sidebar = (
     <nav aria-label="Main navigation" className="flex h-full flex-col">
@@ -183,38 +203,71 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
           </>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto px-2 py-4">
-        {sections.map((s) => (
-          <div key={s} className="mb-4">
-            {s && !collapsed && <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-haze/70">{s}</p>}
-            <ul className="space-y-0.5">
-              {visible
-                .filter((n) => (n.section ?? '') === s)
-                .map((n) => {
-                  const active = isActive(n.href);
-                  return (
-                    <li key={n.href}>
-                      <Link
-                        href={n.href}
-                        onPointerEnter={() => router.prefetch(n.href)}
-                        onFocus={() => router.prefetch(n.href)}
-                        title={collapsed ? n.label : undefined}
-                        aria-current={active ? 'page' : undefined}
-                        className={cn(
-                          'fx-nav flex items-center gap-3 rounded-lg px-3 py-2 text-sm',
-                          active ? 'bg-gradient-to-r from-white/[0.16] to-white/[0.04] font-medium text-white ring-1 ring-white/15' : 'text-haze hover:bg-white/[0.07] hover:text-white',
-                          collapsed && 'justify-center px-2',
-                        )}
-                      >
-                        <n.icon className={cn('h-[18px] w-[18px] shrink-0', active ? 'text-accent' : 'text-haze/80')} />
-                        {!collapsed && <span className="truncate">{n.label}</span>}
-                      </Link>
-                    </li>
-                  );
-                })}
-            </ul>
-          </div>
-        ))}
+      {!collapsed && (
+        <div className="px-3 pt-3">
+          <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-haze transition-colors focus-within:border-accent/60 focus-within:bg-white/[0.1]">
+            <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="sr-only">Find a page</span>
+            <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Find a page…" className="w-full bg-transparent text-xs text-white placeholder:text-haze/60 focus:outline-none" />
+            {filter && (
+              <button onClick={() => setFilter('')} aria-label="Clear" className="text-haze hover:text-white">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </label>
+        </div>
+      )}
+      <div className="flex-1 overflow-y-auto px-2 py-3">
+        {term && !sections.some((x) => shownIn(x).length) && <p className="px-3 py-2 text-xs text-haze/70">No page matches “{filter}”.</p>}
+        {sections.map((s) => {
+          const items = shownIn(s);
+          if (!items.length) return null;
+          // A section stays open while it holds the current page or a search is active.
+          const open = collapsed || !s || Boolean(term) || !closedSections.has(s) || items.some((n) => n.href === activeHref);
+          return (
+            <div key={s} className="mb-2">
+              {s && !collapsed && (
+                <button
+                  onClick={() => toggleSection(s)}
+                  aria-expanded={open}
+                  className="group flex w-full items-center gap-2 rounded-md px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-haze/70 transition-colors hover:text-white"
+                >
+                  <span className="flex-1 text-left">{s}</span>
+                  <span className="rounded-full bg-white/[0.08] px-1.5 text-[9px] font-medium tracking-normal text-haze/80">{items.length}</span>
+                  <ChevronDown className="fx-chevron h-3 w-3" aria-hidden />
+                </button>
+              )}
+              {s && collapsed && <div className="mx-3 my-2 h-px bg-white/10" aria-hidden />}
+              <div className="fx-collapse" data-open={open}>
+                {/* Padding keeps the active-page indicator (left of each link) inside the clipped area. */}
+                <ul className="-mx-2 space-y-0.5 px-2">
+                  {items.map((n) => {
+                    const active = isActive(n.href);
+                    return (
+                      <li key={n.href}>
+                        <Link
+                          href={n.href}
+                          onPointerEnter={() => router.prefetch(n.href)}
+                          onFocus={() => router.prefetch(n.href)}
+                          title={collapsed ? n.label : undefined}
+                          aria-current={active ? 'page' : undefined}
+                          className={cn(
+                            'fx-nav flex items-center gap-3 rounded-lg px-3 py-2 text-sm',
+                            active ? 'bg-gradient-to-r from-white/[0.16] to-white/[0.04] font-medium text-white ring-1 ring-white/15' : 'text-haze hover:bg-white/[0.07] hover:text-white',
+                            collapsed && 'justify-center px-2',
+                          )}
+                        >
+                          <n.icon className={cn('h-[18px] w-[18px] shrink-0', active ? 'text-accent' : 'text-haze/80')} />
+                          {!collapsed && <span className="truncate">{n.label}</span>}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          );
+        })}
       </div>
       <button onClick={toggle} className="hidden items-center gap-2 border-t border-white/10 px-4 py-3 text-xs text-haze transition-colors hover:text-white lg:flex" aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
         {collapsed ? <ChevronsRight className="mx-auto h-4 w-4" /> : <><ChevronsLeft className="h-4 w-4" /> Collapse</>}
@@ -225,8 +278,8 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
   return (
     <div className="relative min-h-screen" onClickCapture={indicateNavigation}>
       {navigating && (
-        <div className="fixed inset-x-0 top-0 z-[100] h-1 bg-primary/10" role="progressbar" aria-label="Opening page">
-          <div className="h-full w-1/3 animate-pulse rounded-r-full bg-accent" />
+        <div className="fixed inset-x-0 top-0 z-[100] h-[3px] overflow-hidden bg-primary/10" role="progressbar" aria-label="Opening page">
+          <div className="fx-progress h-full w-1/3 rounded-full bg-gradient-to-r from-secondary via-accent to-secondary shadow-[0_0_10px_rgb(12_184_132/0.8)]" />
         </div>
       )}
       <AmbientBackground />
@@ -247,12 +300,29 @@ export function AppShell({ brand, nav, children, banner, notifications = true }:
           <button className="fx-btn rounded-lg p-2 text-primary hover:bg-mist lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="flex-1" />
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            {activeItem && (
+              <div key={activeItem.href} className="fx-enter flex min-w-0 items-center gap-2.5">
+                <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-mist to-white text-cobalt ring-1 ring-haze/40 sm:flex">
+                  <activeItem.icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 leading-tight">
+                  {activeItem.section && <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">{activeItem.section}</span>}
+                  <span className="block truncate text-sm font-semibold text-ink">{activeItem.label}</span>
+                </span>
+              </div>
+            )}
+          </div>
+          <span className="hidden rounded-full border border-line bg-white/70 px-3 py-1 text-xs text-muted xl:inline">{today}</span>
           {notifications && <Notifications />}
           <UserMenu />
         </header>
         {banner}
-        <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+          <div key={pathname} className="fx-page">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );
