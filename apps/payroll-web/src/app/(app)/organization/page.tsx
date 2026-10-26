@@ -78,7 +78,7 @@ function Chart() {
     const open = !collapsed.has(p.id) || filtering;
     return (
       <li key={p.id} className="relative">
-        <div className={`group flex items-center gap-3 rounded-lg border bg-white px-3 py-2 shadow-sm transition ${filtering && matches.has(p.id) ? 'border-secondary ring-2 ring-mist' : 'border-line'} ${p.status !== 'ACTIVE' ? 'opacity-60' : ''}`}>
+        <div className={`fx-enter group flex items-center gap-3 rounded-lg border bg-white px-3 py-2 shadow-sm transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_-16px_rgb(30_64_175/0.5)] ${filtering && matches.has(p.id) ? 'border-secondary ring-2 ring-mist' : 'border-line'} ${p.status !== 'ACTIVE' ? 'opacity-60' : ''}`}>
           {kids.length ? (
             <button type="button" aria-label={open ? `Collapse ${p.fullName}'s team` : `Expand ${p.fullName}'s team`} aria-expanded={open} onClick={() => toggle(p.id)} className="rounded p-0.5 text-muted hover:bg-mist">
               {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}

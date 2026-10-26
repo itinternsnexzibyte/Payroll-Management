@@ -3,8 +3,8 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarClock, CheckCircle2, ClipboardCheck, FilePen, FileText, Upload, UsersRound, Wallet } from 'lucide-react';
-import { Card, EmptyState, ErrorState, PageHeader, Spinner, StatCard, StatusBadge, errorMessage, formatDateTime, formatMoney, get, humanize, useAuth } from '@nexzi/ui';
+import { ArrowRight, CalendarClock, CheckCircle2, ClipboardCheck, FilePen, FileText, Sparkles, Upload, UsersRound, Wallet } from 'lucide-react';
+import { Card, EmptyState, ErrorState, Spinner, StatCard, StatusBadge, errorMessage, formatDateTime, formatMoney, get, humanize, useAuth } from '@nexzi/ui';
 import { SimpleBarChart } from '@/components/bar-chart';
 import { OVERALL, ScoreRing, type Readiness } from '@/components/readiness-score';
 
@@ -41,7 +41,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader title={`Welcome, ${user?.name.split(' ')[0] ?? ''}`} description="Payroll status and pending work, from live data." />
+      <WelcomeHero name={user?.name.split(' ')[0] ?? ''} period={d?.currentPeriod.label} status={d?.currentPeriod.status ?? null} pending={d ? d.awaitingReview + d.awaitingApproval : 0} />
       {q.isLoading && <Spinner />}
       {q.error && <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />}
       {d && (
@@ -82,8 +82,12 @@ export default function DashboardPage() {
               <ul className="grid gap-2">
                 {quick.map((x) => (
                   <li key={x.href}>
-                    <Link href={x.href} className="flex items-center gap-3 rounded-md border border-line px-3 py-2.5 text-sm font-medium text-ink hover:border-cobalt/40 hover:bg-mist/30">
-                      <x.icon className="h-4 w-4 text-haze" /> {x.label}
+                    <Link href={x.href} className="group flex items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-sm font-medium text-ink transition-all duration-300 hover:-translate-y-0.5 hover:border-secondary/50 hover:bg-mist/30 hover:shadow-[0_8px_20px_-14px_rgb(30_64_175/0.5)]">
+                      <span className="rounded-md bg-mist/70 p-1.5 text-cobalt transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6">
+                        <x.icon className="h-4 w-4" />
+                      </span>
+                      <span className="flex-1">{x.label}</span>
+                      <ArrowRight className="h-4 w-4 -translate-x-1 text-haze opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100" />
                     </Link>
                   </li>
                 ))}
@@ -166,5 +170,41 @@ function ReadinessCard() {
         </div>
       </div>
     </Card>
+  );
+}
+
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+};
+
+/** Brand-coloured welcome banner with the month's status at a glance. */
+function WelcomeHero({ name, period, status, pending }: { name: string; period?: string; status: string | null; pending: number }) {
+  return (
+    <section className="fx-enter relative mb-6 overflow-hidden rounded-[var(--radius-card)] bg-gradient-to-br from-navy via-primary to-cobalt px-6 py-6 text-white shadow-[0_24px_48px_-28px_rgb(13_27_69/0.8)] sm:px-8">
+      <div className="fx-blob fx-blob--b pointer-events-none !absolute !-right-24 !-top-40 !h-80 !w-80 !opacity-40" aria-hidden />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(500px_200px_at_85%_120%,rgb(12_184_132/0.35),transparent)]" aria-hidden />
+      <div className="relative flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent">
+            <Sparkles className="h-3.5 w-3.5" aria-hidden /> {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+            {greeting()}, {name}
+          </h1>
+          <p className="mt-1 text-sm text-haze">Payroll status and pending work, from live data.</p>
+        </div>
+        {period && (
+          <div className="flex flex-wrap gap-2">
+            <span className="fx-glass rounded-full px-3 py-1.5 text-xs">
+              {period}: <strong className="font-semibold">{status ? humanize(status) : 'not started'}</strong>
+            </span>
+            <span className={`fx-glass rounded-full px-3 py-1.5 text-xs ${pending ? 'text-accent' : ''}`}>
+              {pending ? `${pending} awaiting review or approval` : 'Nothing awaiting approval'}
+            </span>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
