@@ -38,6 +38,8 @@ interface CalendarEvent {
   eventTime: string | null;
   color: string;
   employee: { id: string; employeeCode: string; fullName: string } | null;
+  /** True when the signed-in user may edit or cancel this event. */
+  editable: boolean;
 }
 interface EventForm {
   title: string;
@@ -70,7 +72,7 @@ export default function CalendarPage() {
     <RequirePermission permission="calendar.view">
       <PageHeader
         title="Calendar"
-        description="View shared events and events assigned to your linked employee profile. Creating, editing, or cancelling an event sends in-app notifications."
+        description="Shared events, events assigned to you, and your own personal events. Changes to shared or assigned events send in-app notifications."
         breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Calendar' }]}
       />
       <CalendarWorkspace />
@@ -79,7 +81,9 @@ export default function CalendarPage() {
 }
 
 function CalendarWorkspace() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
+  // The calendar team adds events for anyone; a linked employee adds personal events for themselves.
+  const canAdd = can('calendar.manage') || Boolean(user?.employeeLinked);
   const searchParams = useSearchParams();
   const toast = useToast();
   const qc = useQueryClient();
@@ -101,7 +105,7 @@ function CalendarWorkspace() {
   if (events.error) return <ErrorState message={errorMessage(events.error)} onRetry={() => events.refetch()} />;
   return (
     <>
-      <Card padded={false} title={`Events · ${range.start.slice(0, 7)}`} actions={can('calendar.manage') && <Button icon={<Plus className="h-4 w-4" />} onClick={() => setCreating(true)}>Add event</Button>}>
+      <Card padded={false} title={`Events · ${range.start.slice(0, 7)}`} actions={canAdd && <Button icon={<Plus className="h-4 w-4" />} onClick={() => setCreating(true)}>Add event</Button>}>
         <DataTable<CalendarEvent>
           rows={events.data}
           rowKey={(event) => event.id}
@@ -120,11 +124,11 @@ function CalendarWorkspace() {
               render: (event) => event.employee ? <><span className="block">{event.employee.employeeCode}</span><span className="text-xs text-muted">{event.employee.fullName}</span></> : <Badge tone="info">Everyone</Badge>,
             },
             { key: 'color', header: 'Color', render: (event) => <span className="inline-block h-4 w-4 rounded-full border border-line" style={{ backgroundColor: event.color }} aria-label={event.color} /> },
-            ...(can('calendar.manage') ? [{
+            ...(canAdd ? [{
               key: 'actions',
               header: '',
               align: 'right' as const,
-              render: (event: CalendarEvent) => <span className="flex justify-end gap-1"><Button size="sm" variant="ghost" aria-label={`Edit ${event.title}`} icon={<Pencil className="h-4 w-4" />} onClick={() => setEditing(event)} /><Button size="sm" variant="ghost" aria-label={`Cancel ${event.title}`} icon={<Trash2 className="h-4 w-4" />} onClick={() => setDeleting(event)} /></span>,
+              render: (event: CalendarEvent) => event.editable && <span className="flex justify-end gap-1"><Button size="sm" variant="ghost" aria-label={`Edit ${event.title}`} icon={<Pencil className="h-4 w-4" />} onClick={() => setEditing(event)} /><Button size="sm" variant="ghost" aria-label={`Cancel ${event.title}`} icon={<Trash2 className="h-4 w-4" />} onClick={() => setDeleting(event)} /></span>,
             }] : []),
           ]}
         />
@@ -145,7 +149,9 @@ function CalendarWorkspace() {
 }
 
 function EventDialog({ event, onClose, onSaved }: { event: CalendarEvent | null; onClose: () => void; onSaved: () => void }) {
-  const employees = useEmployeeOptions();
+  const { can } = useAuth();
+  const manager = can('calendar.manage');
+  const employees = useEmployeeOptions(manager);
   const toast = useToast();
   const [form, setForm] = useState<EventForm>(() => ({
     title: event?.title ?? '',
@@ -173,10 +179,10 @@ function EventDialog({ event, onClose, onSaved }: { event: CalendarEvent | null;
           <Field label="Time (optional)" htmlFor="event-time"><Input id="event-time" type="time" value={form.eventTime} onChange={(e) => setForm({ ...form, eventTime: e.target.value })} /></Field>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Audience" htmlFor="event-employee"><Select id="event-employee" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}><option value="">Everyone</option>{employees.data?.items.map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} · {employee.fullName}</option>)}</Select></Field>
+          {manager && <Field label="Audience" htmlFor="event-employee"><Select id="event-employee" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}><option value="">Everyone</option>{employees.data?.items.map((employee) => <option key={employee.id} value={employee.id}>{employee.employeeCode} · {employee.fullName}</option>)}</Select></Field>}
           <Field label="Event color" htmlFor="event-color"><Input id="event-color" type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></Field>
         </div>
-        <p className="text-xs text-muted">Employees who can view this event receive an in-app notification when it is created, changed, or cancelled.</p>
+        <p className="text-xs text-muted">{manager ? 'Employees who can view this event receive an in-app notification when it is created, changed, or cancelled.' : 'Personal events are visible only to you and the payroll team.'}</p>
       </div>
     </Dialog>
   );

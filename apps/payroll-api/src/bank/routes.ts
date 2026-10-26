@@ -70,11 +70,12 @@ export function registerBankRoutes(r: ApiRegistry) {
     method: 'get',
     path: '/bank/accounts',
     tag: 'Bank',
-    summary: 'Bank details of all employees (account numbers masked)',
+    summary: 'Bank details of active employees, and of former employees whose account is still on file (account numbers masked)',
     permission: ['bank.view', 'bank.manage'],
     handler: async () => {
       const [employees, linked] = await Promise.all([
-        prisma.employee.findMany({ include: { bankAccount: true }, orderBy: { employeeCode: 'asc' } }),
+        // Active employees, plus former ones whose account is still on file; others cannot be paid.
+        prisma.employee.findMany({ where: { OR: [{ status: 'ACTIVE' }, { bankAccount: { isNot: null } }] }, include: { bankAccount: true }, orderBy: { employeeCode: 'asc' } }),
         prisma.user.findMany({ where: { employeeId: { not: null } }, select: { id: true, employeeId: true } }),
       ]);
       // The employee's own account last saved the details (entered through self-service).
