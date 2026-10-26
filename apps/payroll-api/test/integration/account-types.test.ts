@@ -28,12 +28,12 @@ describe('create account as User or as Administrator', () => {
     expect(res.body).toMatchObject({ enabled: true, adminSignup: 'approval' });
   });
 
-  it('a User account is active immediately with the Payroll User role', async () => {
+  it('a User account is active immediately with the Employee (self-service) role', async () => {
     const res = await signUp('new.user@example.test', 'USER');
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ requiresApproval: false, accountType: 'USER' });
     const u = await prisma.user.findFirstOrThrow({ where: { email: 'new.user@example.test' }, include: { role: true } });
-    expect([u.status, u.role.code]).toEqual(['ACTIVE', 'PAYROLL_USER']);
+    expect([u.status, u.role.code]).toEqual(['ACTIVE', 'EMPLOYEE']);
     expect((await signIn('new.user@example.test', STRONG, 'USER')).status).toBe(200);
   });
 
