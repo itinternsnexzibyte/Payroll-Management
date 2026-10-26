@@ -1,0 +1,80 @@
+# Render Blueprint: PostgreSQL + Payroll API (Docker with Chromium for PDFs) + Payroll Web (Next.js).
+# In Render Dashboard: New -> Blueprint -> Select this repository.
+# Documentation: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: payroll-db
+    databaseName: payroll
+    plan: starter
+    region: oregon
+
+services:
+  - type: web
+    name: payroll-api
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: infra/docker/api.Dockerfile
+    dockerContext: .
+    healthCheckPath: /ready
+    disk:
+      name: payroll-storage
+      mountPath: /var/lib/nexzi/storage
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: payroll-db
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        value: https://payroll-web.onrender.com
+      - key: PUBLIC_API_PREFIX
+        value: /api
+      - key: COOKIE_SECURE
+        value: true
+      - key: TRUST_PROXY
+        value: 2
+      - key: STORAGE_DIR
+        value: /var/lib/nexzi/storage
+      - key: RUN_MIGRATIONS
+        value: true
+      - key: PAYSLIP_COMPANY_NAME
+        value: NexziByte Solutions
+      - key: PAYROLL_RULES_APPROVED
+        value: false
+      - key: PAYSLIP_FORMAT_APPROVED
+        value: false
+      - key: VIEWER_ROLE_ENABLED
+        value: false
+      - key: SIGNUP_ENABLED
+        value: true
+      - key: SIGNUP_REQUIRE_APPROVAL
+        value: false
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+
+  - type: web
+    name: payroll-web
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: infra/docker/web.Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOSTNAME
+        value: 0.0.0.0
+      - key: PORT
+        value: 3001
+      - key: API_INTERNAL_URL
+        fromService:
+          name: payroll-api
+          type: web
+          property: hostport
