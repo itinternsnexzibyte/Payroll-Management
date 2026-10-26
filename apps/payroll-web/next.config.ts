@@ -13,7 +13,6 @@ function apiOrigin(raw: string | undefined): string {
   }
   return url.toString().replace(/\/+$/, '');
 }
-const API = process.env.VERCEL ? undefined : apiOrigin(process.env.API_INTERNAL_URL);
 
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -42,7 +41,8 @@ const nextConfig: NextConfig = {
   experimental: { externalDir: true },
   eslint: { ignoreDuringBuilds: true },
   async rewrites() {
-    return API ? [{ source: '/api/:path*', destination: `${API}/:path*` }] : [];
+    if (process.env.VERCEL) return [];
+    return [{ source: '/api/:path*', destination: `${apiOrigin(process.env.API_INTERNAL_URL)}/:path*` }];
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
