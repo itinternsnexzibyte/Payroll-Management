@@ -39,6 +39,29 @@ async function monthlyAttendance(year: number, month: number, lateAfter: string)
   return by;
 }
 
+/** Writes the month's attendance register totals into its payroll run through the column mapping. */
+export async function applyAttendanceToPayroll(body: { year: number; month: number; lateAfter: string }, user: AuthUser, ip: string | null) {
+  const run = await prisma.payrollRun.findUnique({ where: { year_month: { year: body.year, month: body.month } } });
+  if (!run) throw notFound('Payroll run');
+  const map = (await getSettings()).attendancePayrollMap;
+  if (!map.length) throw new AppError('INVALID_STATE', 'Map the attendance totals to payroll input columns on the Attendance to payroll page first.');
+  const totals = await monthlyAttendance(body.year, body.month, body.lateAfter);
+  const members = await prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, select: { employeeId: true } });
+  const entries: InputEntry[] = [];
+  for (const m of members) {
+    const t = totals.get(m.employeeId);
+    if (!t) continue;
+    for (const f of map) {
+      const v = (t as Record<string, number>)[f.source];
+      if (v !== undefined) entries.push({ employeeId: m.employeeId, inputKey: f.inputKey, value: String(v) });
+    }
+  }
+  if (!entries.length) throw new AppError('INVALID_STATE', 'No daily attendance records match the mapped fields for this month.');
+  const result = await saveInputs(user, run.id, entries, ip);
+  await audit.write({ actorId: user.id, action: 'attendance.applied_from_register', entity: 'payroll_run', entityId: run.id, metadata: { cells: result.saved, errors: result.errors.length }, ip });
+  return { saved: result.saved, errors: result.errors };
+}
+
 export function registerAnalyticsRoutes(r: ApiRegistry) {
   r.add({
     method: 'get',
@@ -203,25 +226,7 @@ export function registerAnalyticsRoutes(r: ApiRegistry) {
     body: periodQuery,
     handler: async ({ body, user, ip }) => {
       if (!user.permissions.has('attendance.view')) throw new AppError('FORBIDDEN', 'Applying attendance also needs the View attendance permission.');
-      const run = await prisma.payrollRun.findUnique({ where: { year_month: { year: body.year, month: body.month } } });
-      if (!run) throw notFound('Payroll run');
-      const map = (await getSettings()).attendancePayrollMap;
-      if (!map.length) throw new AppError('INVALID_STATE', 'Map the attendance totals to payroll input columns on the Attendance to payroll page first.');
-      const totals = await monthlyAttendance(body.year, body.month, body.lateAfter);
-      const members = await prisma.payrollRunEmployee.findMany({ where: { payrollRunId: run.id }, select: { employeeId: true } });
-      const entries: InputEntry[] = [];
-      for (const m of members) {
-        const t = totals.get(m.employeeId);
-        if (!t) continue;
-        for (const f of map) {
-          const v = (t as Record<string, number>)[f.source];
-          if (v !== undefined) entries.push({ employeeId: m.employeeId, inputKey: f.inputKey, value: String(v) });
-        }
-      }
-      if (!entries.length) throw new AppError('INVALID_STATE', 'No daily attendance records match the mapped fields for this month.');
-      const result = await saveInputs(user, run.id, entries, ip);
-      await audit.write({ actorId: user.id, action: 'attendance.applied_from_register', entity: 'payroll_run', entityId: run.id, metadata: { cells: result.saved, errors: result.errors.length }, ip });
-      return { saved: result.saved, errors: result.errors };
+      return applyAttendanceToPayroll(body, user, ip);
     },
   });
 

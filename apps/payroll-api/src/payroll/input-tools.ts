@@ -6,7 +6,7 @@
  *    columns mapped in Payroll settings.
  * Everything goes through saveInputs, so validation, locking and audit are the same as the grid.
  */
-import { AppError, XLSX_MIME, attachment, buildXlsx, dec, idParam, money, notFound, parseSpreadsheet, type ApiRegistry } from '@nexzi/server-core';
+import { AppError, XLSX_MIME, attachment, buildXlsx, dec, idParam, money, notFound, parseSpreadsheet, type ApiRegistry, type AuthUser } from '@nexzi/server-core';
 import { prisma } from '../db';
 import { audit } from '../audit';
 import { getSettings } from '../settings';
@@ -25,6 +25,45 @@ async function runContext(runId: string) {
     prisma.payrollInputDefinition.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { key: 'asc' }] }),
   ]);
   return { run, members, defs };
+}
+
+/** Fills the mapped input columns from approved leave, active advances and approved bonuses. */
+export async function fillFromModules(runId: string, user: AuthUser, ip: string | null) {
+  const { run, members, defs } = await runContext(runId);
+  const map = (await getSettings()).inputMappings;
+  const numeric = new Set(defs.filter((d) => d.dataType === 'NUMBER').map((d) => d.key));
+  const mapped = Object.entries(map).filter(([, key]) => key) as [keyof typeof map, string][];
+  if (!mapped.length) throw new AppError('CONFIGURATION_MISSING', 'No input columns are mapped yet. An administrator can map them in Payroll settings → Input mappings.');
+  const bad = mapped.filter(([, key]) => !numeric.has(key));
+  if (bad.length) throw new AppError('CONFIGURATION_MISSING', `Mapped input column(s) ${bad.map(([, k]) => k).join(', ')} are missing, inactive or not numeric. Check Payroll settings → Input mappings.`);
+
+  const ids = members.map((m) => m.employeeId);
+  const sources = {
+    unpaidLeaveDays: () => unpaidLeaveDays(run.year, run.month, ids),
+    advanceRecovery: () => advanceInstalments(run.year, run.month, ids),
+    bonus: async () => (await approvedBonuses(run.year, run.month, ids)).bonus,
+    incentive: async () => (await approvedBonuses(run.year, run.month, ids)).incentive,
+  };
+  const entries: InputEntry[] = [];
+  const summary: Record<string, { inputKey: string; employees: number; total: string }> = {};
+  for (const [source, key] of mapped) {
+    const values = await sources[source]();
+    let total = dec(0);
+    let count = 0;
+    for (const m of members) {
+      const v = values.get(m.employeeId);
+      const has = v && !v.isZero();
+      entries.push({ employeeId: m.employeeId, inputKey: key, value: has ? v.toString() : '' });
+      if (has) {
+        count++;
+        total = total.add(dec(v));
+      }
+    }
+    summary[source] = { inputKey: key, employees: count, total: money(total) };
+  }
+  const result = await saveInputs(user, run.id, entries, ip);
+  await audit.write({ actorId: user.id, action: 'payroll.inputs_filled', entity: 'payroll_run', entityId: run.id, metadata: { sources: Object.keys(summary), saved: result.saved, errors: result.errors.length }, ip });
+  return { summary, saved: result.saved, errors: result.errors };
 }
 
 export function registerInputToolRoutes(r: ApiRegistry) {
@@ -122,43 +161,7 @@ export function registerInputToolRoutes(r: ApiRegistry) {
     summary: 'Fill the mapped input columns from approved leave, active advances and approved bonuses (overwrites those columns only)',
     permission: 'payroll.input',
     params: idParam,
-    handler: async ({ params, user, ip }) => {
-      const { run, members, defs } = await runContext(params.id);
-      const map = (await getSettings()).inputMappings;
-      const numeric = new Set(defs.filter((d) => d.dataType === 'NUMBER').map((d) => d.key));
-      const mapped = Object.entries(map).filter(([, key]) => key) as [keyof typeof map, string][];
-      if (!mapped.length) throw new AppError('CONFIGURATION_MISSING', 'No input columns are mapped yet. An administrator can map them in Payroll settings → Input mappings.');
-      const bad = mapped.filter(([, key]) => !numeric.has(key));
-      if (bad.length) throw new AppError('CONFIGURATION_MISSING', `Mapped input column(s) ${bad.map(([, k]) => k).join(', ')} are missing, inactive or not numeric. Check Payroll settings → Input mappings.`);
-
-      const ids = members.map((m) => m.employeeId);
-      const sources = {
-        unpaidLeaveDays: () => unpaidLeaveDays(run.year, run.month, ids),
-        advanceRecovery: () => advanceInstalments(run.year, run.month, ids),
-        bonus: async () => (await approvedBonuses(run.year, run.month, ids)).bonus,
-        incentive: async () => (await approvedBonuses(run.year, run.month, ids)).incentive,
-      };
-      const entries: InputEntry[] = [];
-      const summary: Record<string, { inputKey: string; employees: number; total: string }> = {};
-      for (const [source, key] of mapped) {
-        const values = await sources[source]();
-        let total = dec(0);
-        let count = 0;
-        for (const m of members) {
-          const v = values.get(m.employeeId);
-          const has = v && !v.isZero();
-          entries.push({ employeeId: m.employeeId, inputKey: key, value: has ? v.toString() : '' });
-          if (has) {
-            count++;
-            total = total.add(dec(v));
-          }
-        }
-        summary[source] = { inputKey: key, employees: count, total: money(total) };
-      }
-      const result = await saveInputs(user, run.id, entries, ip);
-      await audit.write({ actorId: user.id, action: 'payroll.inputs_filled', entity: 'payroll_run', entityId: run.id, metadata: { sources: Object.keys(summary), saved: result.saved, errors: result.errors.length }, ip });
-      return { summary, saved: result.saved, errors: result.errors };
-    },
+    handler: ({ params, user, ip }) => fillFromModules(params.id, user, ip),
   });
 }
 

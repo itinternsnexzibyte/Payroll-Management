@@ -69,12 +69,77 @@ function serializeVersion(v: VersionRow) {
     effectiveFrom: toIsoDate(v.effectiveFrom),
     effectiveTo: toIsoDate(v.effectiveTo),
     changeReason: v.changeReason,
+    monthlyGross: v.monthlyGross?.toString() ?? null,
     createdAt: v.createdAt,
     createdById: v.createdById,
     values: v.values
       .sort((a, b) => a.component.sortOrder - b.component.sortOrder)
       .map((val) => ({ componentId: val.componentId, code: val.component.code, name: val.component.name, type: val.component.type, basis: val.component.basis, value: val.value.toString() })),
   };
+}
+
+export interface SalaryVersionInput {
+  effectiveFrom: Date;
+  changeReason: string;
+  values: { componentId: string; value: string }[];
+  /** Set when the values were generated from the salary structure template */
+  monthlyGross?: string | null;
+}
+
+/** Creates a new salary version effective from a date; earlier versions are closed, never overwritten. */
+export async function createSalaryVersion(employeeId: string, body: SalaryVersionInput, userId: string, ip: string | null) {
+  const emp = await prisma.employee.findUnique({ where: { id: employeeId } });
+  if (!emp) throw notFound('Employee');
+  if (body.effectiveFrom < emp.joiningDate) throw new AppError('VALIDATION_ERROR', 'The effective date cannot be before the joining date.', { fields: [{ path: 'effectiveFrom', message: 'Before joining date.' }] });
+  const ids = body.values.map((v) => v.componentId);
+  if (new Set(ids).size !== ids.length) throw new AppError('VALIDATION_ERROR', 'Each component can appear only once.');
+  const components = await prisma.salaryComponent.findMany({ where: { id: { in: ids } } });
+  const fields: { path: string; message: string }[] = [];
+  body.values.forEach((v, i) => {
+    const c = components.find((x) => x.id === v.componentId);
+    if (!c) fields.push({ path: `values.${i}.componentId`, message: 'Unknown component.' });
+    else if (!c.active) fields.push({ path: `values.${i}.componentId`, message: `${c.name} is inactive.` });
+    else if (c.basis === 'INPUT') fields.push({ path: `values.${i}.componentId`, message: `${c.name} is entered monthly, not in the salary structure.` });
+    if (v.value.startsWith('-')) fields.push({ path: `values.${i}.value`, message: 'Values cannot be negative.' });
+  });
+  if (fields.length) throw new AppError('VALIDATION_ERROR', 'Please correct the salary values.', { fields });
+
+  const created = await prisma.$transaction(async (tx) => {
+    // Serialise concurrent edits for the same employee.
+    await tx.$queryRaw`SELECT id FROM employees WHERE id = ${emp.id}::uuid FOR UPDATE`;
+    const latest = await tx.salaryVersion.findFirst({ where: { employeeId: emp.id }, orderBy: { effectiveFrom: 'desc' } });
+    if (latest && body.effectiveFrom <= latest.effectiveFrom) {
+      throw new AppError('VALIDATION_ERROR', `The effective date must be after the latest version's effective date (${toIsoDate(latest.effectiveFrom)}).`, {
+        fields: [{ path: 'effectiveFrom', message: `Must be after ${toIsoDate(latest.effectiveFrom)}.` }],
+      });
+    }
+    if (latest) {
+      await tx.salaryVersion.update({ where: { id: latest.id }, data: { effectiveTo: new Date(body.effectiveFrom.getTime() - 86_400_000) } });
+    }
+    return tx.salaryVersion.create({
+      data: {
+        employeeId: emp.id,
+        versionNo: (latest?.versionNo ?? 0) + 1,
+        effectiveFrom: body.effectiveFrom,
+        changeReason: body.changeReason,
+        monthlyGross: body.monthlyGross ? new Prisma.Decimal(body.monthlyGross) : null,
+        createdById: userId,
+        values: { create: body.values.map((v) => ({ componentId: v.componentId, value: new Prisma.Decimal(v.value) })) },
+      },
+      include: versionInclude,
+    });
+  });
+  const out = serializeVersion(created);
+  await audit.write({
+    actorId: userId,
+    action: 'salary.version_created',
+    entity: 'employee',
+    entityId: emp.id,
+    after: { versionNo: out.versionNo, effectiveFrom: out.effectiveFrom, values: out.values.map((v) => ({ code: v.code, value: v.value })) },
+    metadata: { reason: body.changeReason, ...(body.monthlyGross ? { generatedFromTemplate: true } : {}) },
+    ip,
+  });
+  return out;
 }
 
 export function registerSalaryRoutes(r: ApiRegistry) {
@@ -183,58 +248,6 @@ export function registerSalaryRoutes(r: ApiRegistry) {
         .min(1, 'Enter at least one component value.')
         .max(100),
     }),
-    handler: async ({ params, body, user, ip }) => {
-      const emp = await prisma.employee.findUnique({ where: { id: params.id } });
-      if (!emp) throw notFound('Employee');
-      if (body.effectiveFrom < emp.joiningDate) throw new AppError('VALIDATION_ERROR', 'The effective date cannot be before the joining date.', { fields: [{ path: 'effectiveFrom', message: 'Before joining date.' }] });
-      const ids = body.values.map((v) => v.componentId);
-      if (new Set(ids).size !== ids.length) throw new AppError('VALIDATION_ERROR', 'Each component can appear only once.');
-      const components = await prisma.salaryComponent.findMany({ where: { id: { in: ids } } });
-      const fields: { path: string; message: string }[] = [];
-      body.values.forEach((v, i) => {
-        const c = components.find((x) => x.id === v.componentId);
-        if (!c) fields.push({ path: `values.${i}.componentId`, message: 'Unknown component.' });
-        else if (!c.active) fields.push({ path: `values.${i}.componentId`, message: `${c.name} is inactive.` });
-        else if (c.basis === 'INPUT') fields.push({ path: `values.${i}.componentId`, message: `${c.name} is entered monthly, not in the salary structure.` });
-        if (v.value.startsWith('-')) fields.push({ path: `values.${i}.value`, message: 'Values cannot be negative.' });
-      });
-      if (fields.length) throw new AppError('VALIDATION_ERROR', 'Please correct the salary values.', { fields });
-
-      const created = await prisma.$transaction(async (tx) => {
-        // Serialise concurrent edits for the same employee.
-        await tx.$queryRaw`SELECT id FROM employees WHERE id = ${emp.id}::uuid FOR UPDATE`;
-        const latest = await tx.salaryVersion.findFirst({ where: { employeeId: emp.id }, orderBy: { effectiveFrom: 'desc' } });
-        if (latest && body.effectiveFrom <= latest.effectiveFrom) {
-          throw new AppError('VALIDATION_ERROR', `The effective date must be after the latest version's effective date (${toIsoDate(latest.effectiveFrom)}).`, {
-            fields: [{ path: 'effectiveFrom', message: `Must be after ${toIsoDate(latest.effectiveFrom)}.` }],
-          });
-        }
-        if (latest) {
-          await tx.salaryVersion.update({ where: { id: latest.id }, data: { effectiveTo: new Date(body.effectiveFrom.getTime() - 86_400_000) } });
-        }
-        return tx.salaryVersion.create({
-          data: {
-            employeeId: emp.id,
-            versionNo: (latest?.versionNo ?? 0) + 1,
-            effectiveFrom: body.effectiveFrom,
-            changeReason: body.changeReason,
-            createdById: user.id,
-            values: { create: body.values.map((v) => ({ componentId: v.componentId, value: new Prisma.Decimal(v.value) })) },
-          },
-          include: versionInclude,
-        });
-      });
-      const out = serializeVersion(created);
-      await audit.write({
-        actorId: user.id,
-        action: 'salary.version_created',
-        entity: 'employee',
-        entityId: emp.id,
-        after: { versionNo: out.versionNo, effectiveFrom: out.effectiveFrom, values: out.values.map((v) => ({ code: v.code, value: v.value })) },
-        metadata: { reason: body.changeReason },
-        ip,
-      });
-      return out;
-    },
+    handler: async ({ params, body, user, ip }) => createSalaryVersion(params.id, body, user.id, ip),
   });
 }

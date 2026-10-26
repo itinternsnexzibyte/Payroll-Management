@@ -16,6 +16,10 @@ export interface Employee {
   status: 'ACTIVE' | 'INACTIVE' | 'EXITED';
   contactEmail?: string | null;
   contactPhone?: string | null;
+  manager?: { id: string; fullName: string; employeeCode: string } | null;
+  panNumber?: string | null;
+  uanNumber?: string | null;
+  pfNumber?: string | null;
   payrollRunCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -62,6 +66,8 @@ export interface SalaryVersion {
   effectiveFrom: string;
   effectiveTo: string | null;
   changeReason: string | null;
+  /** Gross the values were generated from by the salary structure template */
+  monthlyGross?: string | null;
   createdAt: string;
   values: { componentId: string; code: string; name: string; type: string; basis: string; value: string }[];
   changes?: { code: string; name: string; from: string | null; to: string | null }[];
@@ -123,9 +129,36 @@ export interface Settings {
   anomalyRules: AnomalyRules;
   inputMappings: { unpaidLeaveDays: string | null; advanceRecovery: string | null; bonus: string | null; incentive: string | null };
   emailNotifications: { reviewRequests: boolean; readyToFinalise: boolean; payslipsAvailable: boolean; leaveDecisions: boolean; attendanceAlerts: boolean };
+  salaryTemplate: SalaryTemplate;
+  proration: { enabled: boolean };
+  gratuity: { enabled: boolean; ratePercent: number; baseComponents: string[] };
+  branding: Branding;
   rulesApproved: boolean;
   viewerRoleEnabled: boolean;
   payslipCompanyName: string;
+}
+
+export type TemplateMethod = 'PERCENT_OF_GROSS' | 'AMOUNT' | 'RATE' | 'BALANCE';
+export interface SalaryTemplate {
+  enabled: boolean;
+  lines: { code: string; method: TemplateMethod; value: number | null }[];
+}
+export interface TemplatePreview {
+  monthlyGross: string;
+  lines: { componentId: string; code: string; name: string; type: 'EARNING' | 'DEDUCTION'; basis: string; method: TemplateMethod; value: string; amount: string }[];
+  earnings: string;
+  deductions: string;
+  net: string;
+  problems: string[];
+}
+export interface Branding {
+  companyName: string | null;
+  address: string | null;
+  logoDataUrl: string | null;
+  primaryColor: string;
+  accentColor: string;
+  employerPan: string | null;
+  employerTan: string | null;
 }
 
 export interface AnomalyRules {

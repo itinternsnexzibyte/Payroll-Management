@@ -3,7 +3,7 @@ import { Prisma, prisma, type Tx } from '../db';
 import { audit } from '../audit';
 import { config } from '../config';
 import { getSettings, type PayrollSettings } from '../settings';
-import { calculateRun, isEligible, selectSalaryVersion, validateInputValue, type ComponentDef, type EmployeeCalcInput, type InputDef } from './engine';
+import { calculateRun, employedDaysInMonth, isEligible, selectSalaryVersion, validateInputValue, type CalcSettings, type ComponentDef, type EmployeeCalcInput, type InputDef } from './engine';
 import { FORMULA_REGISTRY, type FormulaRegistry } from './formulas';
 import { buildStatutoryFormulas } from '../statutory/rules';
 
@@ -18,6 +18,16 @@ export const setFormulaRegistryForTests = (f: FormulaRegistry) => {
 };
 /** Client-approved formulas plus the statutory formulas built from the confirmed settings. */
 export const formulasFor = (settings: PayrollSettings): FormulaRegistry => ({ ...buildStatutoryFormulas(settings.statutory), ...formulas });
+
+/** Engine settings for a payroll month (part of the calculation fingerprint). */
+export const calcSettingsFor = (year: number, month: number, settings: PayrollSettings): CalcSettings => ({
+  year,
+  month,
+  rounding: settings.rounding,
+  unusualChangeThresholdPercent: settings.unusualChangeThresholdPercent,
+  proration: { enabled: settings.proration.enabled, lopInputKey: settings.inputMappings.unpaidLeaveDays },
+  gratuity: settings.gratuity,
+});
 
 /** Locks the run row for the rest of the transaction and checks its state. */
 async function lockRun(tx: Tx, id: string, allowed: RunStatus[]) {
@@ -115,7 +125,7 @@ export async function updateRunEmployees(user: AuthUser, runId: string, add: str
 
 async function invalidateResults(tx: Tx, runId: string) {
   await tx.payrollLine.deleteMany({ where: { payrollRunId: runId } });
-  await tx.payrollRunEmployee.updateMany({ where: { payrollRunId: runId }, data: { gross: null, deductions: null, net: null, resultStatus: 'PENDING', exceptions: [] } });
+  await tx.payrollRunEmployee.updateMany({ where: { payrollRunId: runId }, data: { gross: null, deductions: null, net: null, resultStatus: 'PENDING', exceptions: [], calcSummary: {} } });
   await tx.payrollRun.update({ where: { id: runId }, data: { totalEarnings: null, totalDeductions: null, totalNet: null, calcHash: null, calculatedAt: null, calculatedById: null } });
 }
 
@@ -176,7 +186,7 @@ export async function saveInputs(user: AuthUser, runId: string, entries: InputEn
   });
 }
 
-async function buildCalculationInput(tx: Tx, runId: string, settings: PayrollSettings) {
+export async function buildCalculationInput(tx: Tx, runId: string, settings: PayrollSettings) {
   const run = await tx.payrollRun.findUniqueOrThrow({ where: { id: runId } });
   const members = await tx.payrollRunEmployee.findMany({ where: { payrollRunId: runId }, include: { employee: { include: { salaryVersions: { include: { values: { include: { component: true } } } } } } } });
   const inputs = await tx.payrollInput.findMany({ where: { payrollRunId: runId } });
@@ -212,6 +222,7 @@ async function buildCalculationInput(tx: Tx, runId: string, settings: PayrollSet
       salaryValues: version ? Object.fromEntries(version.values.filter((v) => activeCodes.has(v.component.code)).map((v) => [v.component.code, v.value.toString()])) : null,
       monthlyInputs: Object.fromEntries(inputs.filter((i) => i.employeeId === m.employeeId).map((i) => [i.inputKey, i.value])),
       previousNet: prevNet.get(m.employeeId) ?? null,
+      employedDays: employedDaysInMonth(m.employee, run.year, run.month),
     };
   });
   return { run, employees, components, inputDefs, versionByEmployee };
@@ -223,7 +234,7 @@ export async function calculate(user: AuthUser, runId: string, ip: string | null
       const run = await lockRun(tx, runId, ['DRAFT', 'CALCULATED']);
       const settings = await getSettings(tx);
       const input = await buildCalculationInput(tx, runId, settings);
-      const calc = calculateRun(input.employees, input.components, input.inputDefs, { year: run.year, month: run.month, rounding: settings.rounding, unusualChangeThresholdPercent: settings.unusualChangeThresholdPercent }, formulasFor(settings));
+      const calc = calculateRun(input.employees, input.components, input.inputDefs, calcSettingsFor(run.year, run.month, settings), formulasFor(settings));
 
       await tx.payrollLine.deleteMany({ where: { payrollRunId: runId } });
       const lineRows: Prisma.PayrollLineCreateManyInput[] = [];
@@ -237,6 +248,7 @@ export async function calculate(user: AuthUser, runId: string, ip: string | null
             net: new Prisma.Decimal(r.net),
             resultStatus: r.status,
             exceptions: r.exceptions as unknown as Prisma.InputJsonValue,
+            calcSummary: r.summary as unknown as Prisma.InputJsonValue,
           },
         });
         for (const l of r.lines) {
@@ -285,7 +297,7 @@ export async function calculate(user: AuthUser, runId: string, ip: string | null
 async function assertResultsCurrent(tx: Tx, runId: string, calcHash: string | null) {
   const settings = await getSettings(tx);
   const input = await buildCalculationInput(tx, runId, settings);
-  const calc = calculateRun(input.employees, input.components, input.inputDefs, { year: input.run.year, month: input.run.month, rounding: settings.rounding, unusualChangeThresholdPercent: settings.unusualChangeThresholdPercent }, formulasFor(settings));
+  const calc = calculateRun(input.employees, input.components, input.inputDefs, calcSettingsFor(input.run.year, input.run.month, settings), formulasFor(settings));
   if (calc.hash !== calcHash) {
     throw new AppError('INVALID_STATE', 'Salary data, inputs or payroll settings changed after this payroll was calculated. Return it to draft and recalculate before continuing.', { reason: 'STALE_CALCULATION' });
   }

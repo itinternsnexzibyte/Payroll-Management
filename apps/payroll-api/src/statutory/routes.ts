@@ -6,7 +6,7 @@ import { getSettings } from '../settings';
 import { periodLabel } from '../payroll/service';
 import { sendReport } from '../output/report-export';
 import type { ReportData } from '../output/templates';
-import { STATUTORY_REFS, statutoryProblems, statutorySchema, type StatutoryKind } from './rules';
+import { STATUTORY_REFS, statutoryProblems, statutorySchema, type StatutoryKind, type StatutorySettings } from './rules';
 
 /** Default component created for each statutory deduction (the payroll team may rename it). */
 const COMPONENTS: Record<StatutoryKind, { code: string; name: string; sortOrder: number }> = {
@@ -46,6 +46,52 @@ export function registerStatutoryRoutes(r: ApiRegistry) {
       const before = (await getSettings()).statutory;
       await prisma.payrollSetting.upsert({ where: { key: 'statutory' }, create: { key: 'statutory', value: body, updatedById: user.id }, update: { value: body, updatedById: user.id } });
       await audit.write({ actorId: user.id, action: 'statutory.updated', entity: 'payroll_settings', entityId: null, ...diff(before as never, body as never), ip });
+      return statutoryState();
+    },
+  });
+
+  r.add({
+    method: 'post',
+    path: '/statutory/standard-setup',
+    tag: 'Statutory',
+    summary: 'Apply standard PF / ESI figures with the wage band (ESI at or below the threshold, PF above) and create or convert the PF and ESI components',
+    permission: 'settings.manage',
+    body: z.object({ threshold: z.number().positive().max(10_000_000).default(20000) }),
+    handler: async ({ body, user, ip }) => {
+      const before = (await getSettings()).statutory;
+      const earnings = await prisma.salaryComponent.findMany({ where: { type: 'EARNING', active: true }, orderBy: { sortOrder: 'asc' } });
+      const basic = earnings.find((c) => c.code === 'BASIC') ?? earnings.find((c) => /basic/i.test(c.name)) ?? earnings[0];
+      if (!basic) throw new AppError('CONFIGURATION_MISSING', 'Create the earning components (for example BASIC) before setting up PF and ESI.');
+      const next: StatutorySettings = {
+        ...before,
+        confirmedBy: user.name,
+        confirmedOn: new Date().toISOString().slice(0, 10),
+        reference: 'Standard setup: EPF 12% + 12% on basic (ceiling 15,000); ESI 0.75% + 3.25% of gross; ESI at or below the wage band, PF above.',
+        pf: { enabled: true, employeeRatePercent: 12, employerRatePercent: 12, wageComponents: [basic.code], wageCeiling: 15000, capAtCeiling: true },
+        esi: { enabled: true, employeeRatePercent: 0.75, employerRatePercent: 3.25, wageComponents: earnings.map((c) => c.code), eligibilityLimit: 21000 },
+        wageBand: { enabled: true, threshold: body.threshold },
+      };
+      await prisma.$transaction(async (tx) => {
+        await tx.payrollSetting.upsert({ where: { key: 'statutory' }, create: { key: 'statutory', value: next, updatedById: user.id }, update: { value: next, updatedById: user.id } });
+        for (const kind of ['PF', 'ESI'] as const) {
+          const ref = STATUTORY_REFS[kind];
+          if (await tx.salaryComponent.findFirst({ where: { formulaRef: ref } })) continue;
+          // A plain "12% of basic" PF deduction cannot follow the wage band: switch it to the statutory formula.
+          const legacy = kind === 'PF' ? await tx.salaryComponent.findFirst({ where: { type: 'DEDUCTION', basis: 'PERCENTAGE', OR: [{ code: 'PF' }, { name: { contains: 'provident', mode: 'insensitive' } }] } }) : null;
+          if (legacy) {
+            const updated = await tx.salaryComponent.update({ where: { id: legacy.id }, data: { basis: 'FORMULA', formulaRef: ref, percentOfCode: null, defaultPercentage: null, updatedById: user.id } });
+            await audit.tx(tx, { actorId: user.id, action: 'salary_component.updated', entity: 'salary_component', entityId: legacy.id, before: { basis: legacy.basis, formulaRef: legacy.formulaRef }, after: { basis: updated.basis, formulaRef: ref }, ip });
+            continue;
+          }
+          const def = COMPONENTS[kind];
+          const code = (await tx.salaryComponent.findUnique({ where: { code: def.code } })) ? `${def.code}_STAT` : def.code;
+          const created = await tx.salaryComponent.create({
+            data: { code, name: def.name, type: 'DEDUCTION', basis: 'FORMULA', formulaRef: ref, sortOrder: def.sortOrder, description: `Statutory ${kind} — calculated from Statutory settings.`, createdById: user.id, updatedById: user.id },
+          });
+          await audit.tx(tx, { actorId: user.id, action: 'salary_component.created', entity: 'salary_component', entityId: created.id, after: created, ip });
+        }
+      });
+      await audit.write({ actorId: user.id, action: 'statutory.updated', entity: 'payroll_settings', entityId: null, ...diff(before as never, next as never), metadata: { standardSetup: true }, ip });
       return statutoryState();
     },
   });

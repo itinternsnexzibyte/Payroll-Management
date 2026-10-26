@@ -15,6 +15,9 @@ import type { FormulaRegistry } from './formulas';
  *  - FORMULA:    amount = registered, client-approved formula; unregistered → blocking exception.
  *  - Gross = Σ earnings, Deductions = Σ deductions, Net = Gross − Deductions.
  *  - Rounding per the configured rule (scale, mode, line-level or total-level).
+ *  - Proration (when on): FIXED earnings × days payable ÷ days in month, where days payable = days
+ *    employed in the month − loss-of-pay days. PERCENTAGE components follow their prorated base.
+ *  - Gratuity (when on): rate × the chosen components, reported as an employer cost only.
  * An employee's structure is the set of FIXED/PERCENTAGE/FORMULA components present in their
  * salary version, so employees may have different structures.
  */
@@ -57,6 +60,22 @@ export interface CalcSettings {
   rounding: RoundingRule;
   /** Percentage change in net pay vs the previous finalised month that raises a warning (null = off). */
   unusualChangeThresholdPercent: number | null;
+  /** Pro-rate FIXED earnings; lopInputKey = monthly input holding loss-of-pay days. */
+  proration?: { enabled: boolean; lopInputKey: string | null };
+  /** Gratuity accrual (employer cost, never deducted). */
+  gratuity?: { enabled: boolean; ratePercent: number; baseComponents: string[] };
+}
+
+/** Pay days and employer costs behind one employee's result (shown on payslips). */
+export interface CalcSummary {
+  daysInMonth: number;
+  employedDays: number;
+  lopDays: string;
+  payableDays: string;
+  prorated: boolean;
+  employerPf: string;
+  employerEsi: string;
+  gratuity: string;
 }
 
 export interface EmployeeCalcInput {
@@ -66,6 +85,8 @@ export interface EmployeeCalcInput {
   salaryValues: Record<string, string> | null;
   monthlyInputs: Record<string, string>;
   previousNet: string | null;
+  /** Days of the payroll month the employee was employed (joining / exit); default = whole month. */
+  employedDays?: number;
 }
 
 export type Severity = 'ERROR' | 'WARNING';
@@ -96,6 +117,7 @@ export interface EmployeeResult {
   net: string;
   status: 'OK' | 'WARNING' | 'ERROR';
   exceptions: CalcException[];
+  summary: CalcSummary;
 }
 
 export interface InputValidationIssue {
@@ -144,6 +166,17 @@ export function calculateEmployee(
   }
   const values = employee.salaryValues ?? {};
 
+  // Pay days for proration
+  const employedDays = Math.max(0, Math.min(daysInMonth, employee.employedDays ?? daysInMonth));
+  const lopKey = settings.proration?.lopInputKey ?? null;
+  const lopRaw = lopKey ? numericInputs.get(lopKey) ?? new Dec(0) : new Dec(0);
+  const lopDays = Dec.min(Dec.max(lopRaw, new Dec(0)), new Dec(employedDays));
+  const payableDays = new Dec(employedDays).sub(lopDays);
+  const prorate = Boolean(settings.proration?.enabled) && payableDays.lt(daysInMonth);
+  if (lopRaw.gt(employedDays)) {
+    exceptions.push({ code: 'LOP_EXCEEDS_DAYS', severity: 'WARNING', message: `Loss-of-pay days (${lopRaw.toString()}) exceed the ${employedDays} day(s) employed this month.`, field: lopKey ?? undefined });
+  }
+
   // 2. Determine applicable components
   const byCode = new Map(components.map((c) => [c.code, c]));
   const applicable = components.filter((c) => {
@@ -177,6 +210,10 @@ export function calculateEmployee(
         const v = values[code];
         amount = dec(v);
         detail.configuredValue = v;
+        if (prorate && c.type === 'EARNING') {
+          amount = amount.mul(payableDays).div(daysInMonth);
+          detail.prorated = `${payableDays.toString()} of ${daysInMonth} days`;
+        }
         break;
       }
       case 'PERCENTAGE': {
@@ -290,9 +327,28 @@ export function calculateEmployee(
     }
   }
 
+  // 5. Employer costs (not part of net pay)
+  const employerShare = (ref: string) =>
+    lines.filter((l) => l.detail.formulaRef === ref && l.detail.employerContribution).reduce((acc, l) => acc.add(dec(l.detail.employerContribution!)), new Dec(0));
+  let gratuity = new Dec(0);
+  if (settings.gratuity?.enabled) {
+    const base = settings.gratuity.baseComponents.reduce((acc, code) => acc.add(amounts.get(code) ?? new Dec(0)), new Dec(0));
+    gratuity = roundTo(base.mul(dec(String(settings.gratuity.ratePercent))).div(100), scale, mode);
+  }
+  const summary: CalcSummary = {
+    daysInMonth,
+    employedDays,
+    lopDays: lopDays.toString(),
+    payableDays: payableDays.toString(),
+    prorated: prorate,
+    employerPf: money(employerShare('STATUTORY_PF'), scale),
+    employerEsi: money(employerShare('STATUTORY_ESI'), scale),
+    gratuity: money(gratuity, scale),
+  };
+
   const status = exceptions.some((e) => e.severity === 'ERROR') ? 'ERROR' : exceptions.length ? 'WARNING' : 'OK';
   lines.sort((a, b) => a.sortOrder - b.sortOrder || a.componentCode.localeCompare(b.componentCode));
-  return { employeeId: employee.employeeId, lines, gross: money(gross, scale), deductions: money(deductions, scale), net: money(net, scale), status, exceptions };
+  return { employeeId: employee.employeeId, lines, gross: money(gross, scale), deductions: money(deductions, scale), net: money(net, scale), status, exceptions, summary };
 }
 
 export interface RunCalculation {
@@ -333,6 +389,15 @@ export function selectSalaryVersion<T extends { effectiveFrom: Date; effectiveTo
   const candidates = versions.filter((v) => v.effectiveFrom <= asOf && (v.effectiveTo === null || v.effectiveTo >= asOf));
   candidates.sort((a, b) => b.effectiveFrom.getTime() - a.effectiveFrom.getTime());
   return candidates[0] ?? null;
+}
+
+/** Days of the payroll month between the joining and exit dates (inclusive). */
+export function employedDaysInMonth(e: { joiningDate: Date; exitDate: Date | null }, year: number, month: number): number {
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 0));
+  const from = e.joiningDate > start ? e.joiningDate : start;
+  const to = e.exitDate && e.exitDate < end ? e.exitDate : end;
+  return to < from ? 0 : Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1;
 }
 
 /** An employee is eligible when employed for at least part of the payroll month. */

@@ -19,7 +19,7 @@ export default function MyPage() {
   const slips = useQuery({ queryKey: ['me-payslips'], queryFn: () => get<Slip[]>('/me/payslips'), retry: false, enabled: me.isSuccess });
   return (
     <RequirePermission permission="self.service">
-      <PageHeader title="My payslips" description="Your issued payslips. They appear here once a payroll month is finalised." breadcrumbs={[{ label: 'My payslips' }]} actions={<Link href="/my/account" className="inline-flex items-center gap-2 text-sm font-medium text-cobalt hover:underline"><UserRound className="h-4 w-4" /> My account</Link>} />
+      <PageHeader title="My payslips" description="Your issued payslips. They appear here once a payroll month is finalised." breadcrumbs={[{ label: 'My payslips' }]} actions={<div className="flex gap-4"><Link href="/my/form16" className="inline-flex items-center gap-2 text-sm font-medium text-cobalt hover:underline"><FileText className="h-4 w-4" /> My Form 16</Link><Link href="/my/account" className="inline-flex items-center gap-2 text-sm font-medium text-cobalt hover:underline"><UserRound className="h-4 w-4" /> My account</Link></div>} />
       {me.isLoading ? (
         <Spinner />
       ) : me.error ? (

@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError, Button, Field, Input, Select, post, put, useToast } from '@nexzi/ui';
-import { useDepartments, useDesignations } from '@/lib/hooks';
+import { useDepartments, useDesignations, useEmployeeOptions } from '@/lib/hooks';
 import type { Employee } from '@/lib/types';
 
 const schema = z
@@ -18,6 +18,10 @@ const schema = z
     status: z.enum(['ACTIVE', 'INACTIVE', 'EXITED']),
     contactEmail: z.string().trim().max(200).refine((v) => !v || /^\S+@\S+\.\S+$/.test(v), 'Enter a valid email address.'),
     contactPhone: z.string().trim().max(20).refine((v) => !v || /^\+?[0-9 ()-]{7,20}$/.test(v), 'Enter a phone number with 7–20 digits.'),
+    managerId: z.string(),
+    panNumber: z.string().trim().toUpperCase().refine((v) => !v || /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v), 'Enter a 10-character PAN like ABCDE1234F.'),
+    uanNumber: z.string().trim().refine((v) => !v || /^\d{12}$/.test(v), 'The UAN has 12 digits.'),
+    pfNumber: z.string().trim().max(30),
   })
   .superRefine((v, ctx) => {
     if (v.exitDate && v.joiningDate && v.exitDate < v.joiningDate) ctx.addIssue({ code: 'custom', path: ['exitDate'], message: 'Exit date cannot be before the joining date.' });
@@ -30,6 +34,7 @@ export function EmployeeForm({ employee, onSaved, onCancel }: { employee?: Emplo
   const toast = useToast();
   const depts = useDepartments();
   const desigs = useDesignations();
+  const people = useEmployeeOptions();
   const codeLocked = Boolean(employee?.payrollRunCount);
   const {
     register,
@@ -48,11 +53,15 @@ export function EmployeeForm({ employee, onSaved, onCancel }: { employee?: Emplo
       status: employee?.status ?? 'ACTIVE',
       contactEmail: employee?.contactEmail ?? '',
       contactPhone: employee?.contactPhone ?? '',
+      managerId: employee?.manager?.id ?? '',
+      panNumber: employee?.panNumber ?? '',
+      uanNumber: employee?.uanNumber ?? '',
+      pfNumber: employee?.pfNumber ?? '',
     },
   });
 
   const onSubmit = async (v: FormValues) => {
-    const body = { ...v, departmentId: v.departmentId || null, designationId: v.designationId || null, exitDate: v.exitDate || null, contactEmail: v.contactEmail || null, contactPhone: v.contactPhone || null };
+    const body = { ...v, departmentId: v.departmentId || null, designationId: v.designationId || null, exitDate: v.exitDate || null, contactEmail: v.contactEmail || null, contactPhone: v.contactPhone || null, managerId: v.managerId || null, panNumber: v.panNumber || null, uanNumber: v.uanNumber || null, pfNumber: v.pfNumber || null };
     try {
       const saved = employee ? await put<Employee>(`/employees/${employee.id}`, body) : await post<Employee>('/employees', body);
       await qc.invalidateQueries({ queryKey: ['employees'] });
@@ -115,8 +124,30 @@ export function EmployeeForm({ employee, onSaved, onCancel }: { employee?: Emplo
         <Field label="Contact phone" htmlFor="contactPhone" error={errors.contactPhone?.message}>
           <Input id="contactPhone" type="tel" autoComplete="off" {...register('contactPhone')} invalid={!!errors.contactPhone} />
         </Field>
+        <Field label="Reports to" htmlFor="managerId" error={errors.managerId?.message} hint="Places the employee in the organisation chart.">
+          <Select id="managerId" {...register('managerId')}>
+            <option value="">— No manager (top of the structure) —</option>
+            {employee?.manager && !people.data?.items.some((p) => p.id === employee.manager!.id) && <option value={employee.manager.id}>{employee.manager.fullName}</option>}
+            {people.data?.items
+              .filter((p) => p.id !== employee?.id)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.fullName} ({p.employeeCode})
+                </option>
+              ))}
+          </Select>
+        </Field>
+        <Field label="PAN" htmlFor="panNumber" error={errors.panNumber?.message} hint="Printed on payslips and Form 16.">
+          <Input id="panNumber" autoComplete="off" maxLength={10} className="uppercase" {...register('panNumber')} invalid={!!errors.panNumber} />
+        </Field>
+        <Field label="UAN" htmlFor="uanNumber" error={errors.uanNumber?.message} hint="Universal Account Number for PF (12 digits).">
+          <Input id="uanNumber" inputMode="numeric" autoComplete="off" maxLength={12} {...register('uanNumber')} invalid={!!errors.uanNumber} />
+        </Field>
+        <Field label="PF number" htmlFor="pfNumber" error={errors.pfNumber?.message}>
+          <Input id="pfNumber" autoComplete="off" maxLength={30} className="uppercase" {...register('pfNumber')} invalid={!!errors.pfNumber} />
+        </Field>
       </div>
-      <p className="text-xs text-muted">Bank, identity and other personal fields are added only when confirmed from the client&apos;s payroll workbook.</p>
+      <p className="text-xs text-muted">Bank details are kept separately (encrypted) on the Bank salary payments page.</p>
       <div className="flex justify-end gap-2 border-t border-line pt-4">
         {onCancel && (
           <Button variant="secondary" onClick={onCancel}>

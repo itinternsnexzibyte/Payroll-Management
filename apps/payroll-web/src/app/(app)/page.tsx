@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CalendarClock, CheckCircle2, ClipboardCheck, FilePen, FileText, Upload, UsersRound, Wallet } from 'lucide-react';
 import { Card, EmptyState, ErrorState, PageHeader, Spinner, StatCard, StatusBadge, errorMessage, formatDateTime, formatMoney, get, humanize, useAuth } from '@nexzi/ui';
 import { SimpleBarChart } from '@/components/bar-chart';
+import { OVERALL, ScoreRing, type Readiness } from '@/components/readiness-score';
 
 interface Dashboard {
   activeEmployees: number | null;
@@ -64,6 +65,7 @@ export default function DashboardPage() {
               href="/payroll?status=UNDER_REVIEW"
             />
           </div>
+          {can('payroll.view') && <ReadinessCard />}
 
           <div className="grid gap-6 xl:grid-cols-3">
             <Card title="Net pay — last finalised months" className="xl:col-span-2">
@@ -140,5 +142,29 @@ export default function DashboardPage() {
         </div>
       )}
     </>
+  );
+}
+
+/** Live readiness of the month that needs payroll next (refreshes every minute). */
+function ReadinessCard() {
+  const q = useQuery({ queryKey: ['readiness', null], queryFn: () => get<Readiness>('/readiness'), refetchInterval: 60_000 });
+  if (!q.data) return null;
+  const d = q.data;
+  const o = OVERALL[d.overall];
+  const top = d.checks.filter((c) => c.status === 'FAIL' || c.status === 'WARN').slice(0, 4);
+  return (
+    <Card title={`Payroll readiness · ${d.period}`} actions={<Link href="/readiness" className="text-sm text-cobalt hover:underline">Open monitor →</Link>}>
+      <div className="flex flex-wrap items-center gap-6">
+        <ScoreRing score={d.score} colour={o.ring} size={80} />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-ink">
+            {o.label} · {d.counts.fail} blocking, {d.counts.warn} warning(s)
+          </p>
+          <ul className="mt-1 space-y-0.5 text-sm text-muted">
+            {top.length ? top.map((c) => <li key={c.id}>• {c.title}: {c.detail}</li>) : <li>Everything needed for payroll is in place.</li>}
+          </ul>
+        </div>
+      </div>
+    </Card>
   );
 }
