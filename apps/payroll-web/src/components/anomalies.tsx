@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, History, RefreshCw, RotateCcw, ShieldAlert } from 'lucide-react';
-import { Alert, Badge, Button, Dialog, EmptyState, ErrorState, Field, Select, Spinner, Textarea, cn, errorMessage, formatDateTime, get, post, useToast } from '@nexzi/ui';
+import { Badge, Button, Dialog, EmptyState, ErrorState, Field, Select, Spinner, Textarea, cn, errorMessage, formatDateTime, get, post, useToast } from '@nexzi/ui';
 import type { Anomaly, AnomalyCounts, Severity } from '@/lib/types';
 
 const SEVERITY: Record<Severity, { tone: 'danger' | 'warning' | 'neutral'; label: string }> = {
@@ -225,7 +225,7 @@ export function RunAlerts({ runId, canRescan }: { runId: string; canRescan: bool
 
   if (q.isLoading) return <Spinner />;
   if (q.error || !q.data) return <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />;
-  const { items, counts, canReview, rulesConfigured } = q.data;
+  const { items, counts, canReview } = q.data;
 
   return (
     <div>
@@ -257,11 +257,6 @@ export function RunAlerts({ runId, canRescan }: { runId: string; canRescan: bool
           </Button>
         )}
       </div>
-      {!rulesConfigured && (
-        <div className="px-5 pt-4">
-          <Alert tone="info">Alert thresholds are the provisional defaults. An administrator can agree and change them in Payroll settings → Payroll alerts.</Alert>
-        </div>
-      )}
       {items.length ? (
         <AlertList items={items} canReview={canReview} onReview={setReviewing} onHistory={(a) => setHistory(a.id)} />
       ) : (

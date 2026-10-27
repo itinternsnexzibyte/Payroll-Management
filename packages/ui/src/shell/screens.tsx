@@ -2,10 +2,10 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ShieldCheck, UserRound } from 'lucide-react';
 import { cn } from '../lib/format';
-import { ApiError, post } from '../lib/api';
+import { ApiError, isServerUnavailable, post, waitForServer } from '../lib/api';
 import { Alert, Button, Field, Input } from '../components/primitives';
 import { useSignupConfig } from './signup';
 import { useToast } from '../components/feedback';
@@ -65,7 +65,14 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [waking, setWaking] = useState(false);
   const expired = params.get('expired') === '1';
+  // Wake a sleeping API while the person types, so sign-in is quick.
+  useEffect(() => {
+    const ctl = new AbortController();
+    void waitForServer(60_000, ctl.signal);
+    return () => ctl.abort();
+  }, []);
   const signupCfg = useSignupConfig();
   const [portal, setPortal] = useState<Portal>(params.get('as') === 'admin' ? 'ADMIN' : 'USER');
   const choosePortal = (p: Portal) => {
@@ -86,8 +93,20 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
     setFormError(null);
     if (Object.keys(fe).length) return;
     setBusy(true);
+    const signIn = () => post<{ user: { mustChangePassword: boolean } }>('/auth/login', { email: email.trim(), password, portal });
     try {
-      const res = await post<{ user: { mustChangePassword: boolean } }>('/auth/login', { email: email.trim(), password, portal });
+      let res;
+      try {
+        res = await signIn();
+      } catch (err) {
+        if (!isServerUnavailable(err)) throw err;
+        // The server is asleep or restarting: wait for it, then send the sign-in once more.
+        setWaking(true);
+        const ready = await waitForServer();
+        setWaking(false);
+        if (!ready) throw new ApiError(503, 'SERVER_STARTING', 'The server is taking longer than usual to start. Please try again in a minute.');
+        res = await signIn();
+      }
       qc.clear();
       const next = params.get('next');
       const destination = res.user.mustChangePassword ? '/change-password' : next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
@@ -96,6 +115,7 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
       setFormError(err instanceof ApiError ? err.message : 'Sign-in failed. Please try again.');
       setPassword('');
     } finally {
+      setWaking(false);
       setBusy(false);
     }
   };
@@ -126,7 +146,6 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
             ))}
           </ul>
         </div>
-        <p className="relative z-10 text-xs text-haze/80">Authorised users only. Activity is recorded in the audit trail.</p>
                       </div>
       <div className="relative flex items-center justify-center overflow-hidden bg-surface px-6 py-12">
         <AmbientBackground className="!absolute" />
@@ -144,6 +163,7 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
           </div>
           <PortalSwitch value={portal} onChange={choosePortal} label="Sign in as" />
           {expired && <Alert tone="warning">Your session expired. Please sign in again.</Alert>}
+          {waking && <Alert tone="info" title="Starting the server…">It was asleep after a quiet period. This usually takes under a minute — you will be signed in automatically.</Alert>}
           {formError && <Alert tone="danger">{formError}</Alert>}
           <Field label="Email" htmlFor="email" error={errors.email} required>
             <Input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} invalid={!!errors.email} autoFocus />

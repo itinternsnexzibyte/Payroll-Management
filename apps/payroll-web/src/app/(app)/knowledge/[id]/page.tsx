@@ -34,7 +34,6 @@ export default function ArticlePage() {
   if (q.isLoading) return <Spinner />;
   if (q.error || !q.data) return <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />;
   const a = q.data;
-  const unconfirmedRule = !a.clientConfirmed && (a.category === 'COMPONENT' || a.category === 'BUSINESS_RULE' || a.category === 'VALIDATION_ERROR');
 
   return (
     <>
@@ -70,11 +69,6 @@ export default function ArticlePage() {
       />
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card>
-          {unconfirmedRule && (
-            <Alert tone="warning" className="mb-4" title="Not yet confirmed by the client">
-              This describes how the rule is understood today. Treat it as provisional until the client confirms it in writing.
-            </Alert>
-          )}
           {a.reviewOverdue && (
             <Alert tone="danger" className="mb-4">
               The review date ({formatDate(a.reviewDueAt)}) has passed. Check the text is still correct.

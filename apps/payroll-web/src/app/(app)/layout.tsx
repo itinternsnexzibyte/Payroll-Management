@@ -1,8 +1,8 @@
 'use client';
 import { Suspense } from 'react';
-import { Activity, ArrowLeftRight, Banknote, BarChart3, Beaker, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardList, FileBadge, FileSpreadsheet, FileText, Fingerprint, FlaskConical, Gift, HandCoins, Landmark, LayoutDashboard, LineChart, Microscope, Network, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, UserRound, Users, UsersRound, Wallet } from 'lucide-react';
+import { Activity, ArrowLeftRight, Banknote, BarChart3, Beaker, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardList, FileBadge, FileText, Fingerprint, FlaskConical, Gift, HandCoins, Landmark, LayoutDashboard, LineChart, Microscope, Network, ScrollText, Settings2, ShieldAlert, ShieldCheck, Upload, UserRound, Users, UsersRound, Wallet } from 'lucide-react';
 import { SearchPalette } from '@/components/search-palette';
-import { AppShell, BrandMark, Spinner, useAuth, type NavItem } from '@nexzi/ui';
+import { AppShell, BrandMark, Spinner, type NavItem } from '@nexzi/ui';
 
 const NAV: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard, permission: 'payroll.view' },
@@ -45,20 +45,9 @@ const NAV: NavItem[] = [
   { label: 'Audit log', href: '/admin/audit', icon: ScrollText, permission: 'audit.view', section: 'Administration' },
 ];
 
-function RulesBanner() {
-  const { user } = useAuth();
-  if (!user || user.rulesApproved) return null;
-  return (
-    <div className="no-print border-b border-warning/20 bg-warning-bg px-6 py-2 text-center text-xs text-warning">
-      <FileSpreadsheet className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />
-      Calculation rules are <strong>provisional</strong> until reconciled with the client&apos;s approved payroll workbook. Amounts are not authoritative.
-    </div>
-  );
-}
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AppShell brand={{ appName: 'Payroll Management', company: 'NexziByte', logo: <BrandMark letter="P" />, logoImage: { src: '/brand/nexzibyte-logo-light.png', alt: 'NexziByte Solutions Pvt Ltd' } }} nav={NAV} banner={<RulesBanner />}>
+    <AppShell brand={{ appName: 'Payroll Management', company: 'NexziByte', logo: <BrandMark letter="P" />, logoImage: { src: '/brand/nexzibyte-logo-light.png', alt: 'NexziByte Solutions Pvt Ltd' } }} nav={NAV}>
       <Suspense fallback={<Spinner />}>{children}</Suspense>
       <SearchPalette />
     </AppShell>

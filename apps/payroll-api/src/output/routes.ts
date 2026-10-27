@@ -24,13 +24,6 @@ import { notifyRun } from '../notify';
 
 export const storage = new FileStorage(config.STORAGE_DIR);
 
-function banners(rulesApproved: boolean): string[] {
-  const b: string[] = [];
-  if (!rulesApproved) b.push('PROVISIONAL — payroll calculation rules have not yet been reconciled with the client-approved workbook. Amounts are not authoritative.');
-  if (!config.PAYSLIP_FORMAT_APPROVED) b.push('Internal provisional layout — the client-approved payslip format has not been supplied yet.');
-  return b;
-}
-
 const fmtNow = () => new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
 const CONTRIBUTION_REFS = new Set(['STATUTORY_PF', 'STATUTORY_ESI']);
@@ -69,8 +62,8 @@ export async function payslipData(runId: string, employeeIds?: string[]): Promis
     periodShort: `${MONTHS[run.month - 1].slice(0, 3).toUpperCase()} ${run.year}`,
     runStatus: run.status.replace('_', ' '),
     generatedAt: fmtNow(),
-    watermark: run.status === 'FINALISED' ? (run.rulesApproved ? null : 'PROVISIONAL') : 'DRAFT — NOT FINAL',
-    banners: banners(run.rulesApproved),
+    watermark: run.status === 'FINALISED' ? null : 'DRAFT — NOT FINAL',
+    banners: [],
     slips: members
       .filter((m) => m.resultStatus !== 'ERROR' && m.resultStatus !== 'PENDING')
       .map((m) => {
@@ -254,7 +247,6 @@ export function registerOutputRoutes(r: ApiRegistry) {
 
   const runStatusNote = (run: { status: string; rulesApproved: boolean }) => [
     ...(run.status !== 'FINALISED' ? [`Payroll status: ${run.status.replace('_', ' ')} — figures are not final.`] : []),
-    ...(!run.rulesApproved ? ['PROVISIONAL — calculation rules not yet reconciled with the client-approved workbook.'] : []),
   ];
 
   r.add({
@@ -450,7 +442,7 @@ export function registerOutputRoutes(r: ApiRegistry) {
       const report: ReportData = {
         title: `Salary Statement — ${emp.fullName} (${emp.employeeCode})`,
         subtitle: `${query.year ? `Year ${query.year}` : 'All periods'} · generated ${fmtNow()}`,
-        banners: [...(rowsDb.some((m) => m.payrollRun.status !== 'FINALISED') ? ['Includes payroll months that are not finalised.'] : []), ...(rowsDb.some((m) => !m.payrollRun.rulesApproved) ? ['PROVISIONAL — calculation rules not yet reconciled with the client-approved workbook.'] : [])],
+        banners: [...(rowsDb.some((m) => m.payrollRun.status !== 'FINALISED') ? ['Includes payroll months that are not finalised.'] : [])],
         columns: [
           { header: 'Month', key: 'period' },
           { header: 'Payroll Status', key: 'status' },
