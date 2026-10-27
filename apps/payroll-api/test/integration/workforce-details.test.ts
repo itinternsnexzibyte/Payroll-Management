@@ -41,7 +41,11 @@ describe('Payroll-native workforce details', () => {
     expect((await employee.get(`/employees/${employeeId}/ratings`)).body).toMatchObject([
       { rating: 5, feedback: 'Excellent delivery and communication.', ratingDate: '2026-10-01T00:00:00.000Z' },
     ]);
-    expect((await employee.put(`/employees/${employeeId}/workforce-profile`).set('Origin', ORIGIN).send({ college: 'Not allowed' })).status).toBe(403);
+    const own = await employee.put(`/employees/${employeeId}/workforce-profile`).set('Origin', ORIGIN).send({ college: 'Self-edited College', internshipRole: 'Web Developer' });
+    expect(own.status).toBe(200);
+    expect(own.body).toMatchObject({ college: 'Self-edited College', internshipRole: 'Web Developer' });
+    const other = await prisma.employee.create({ data: { employeeCode: 'WF-004', fullName: 'Someone Else', joiningDate: new Date('2024-01-01T00:00:00Z') } });
+    expect((await employee.put(`/employees/${other.id}/workforce-profile`).set('Origin', ORIGIN).send({ college: 'Not allowed' })).status).toBe(403);
     expect((await employee.put(`/employees/${employeeId}/ratings`).set('Origin', ORIGIN).send({
       ratingDate: '2026-10-02',
       rating: 4,
@@ -80,6 +84,7 @@ describe('Payroll-native workforce details', () => {
       .attach('file', Buffer.from('%PDF-1.4\nPrivate to another employee\n%%EOF'), { filename: 'other-offer.pdf', contentType: 'application/pdf' });
     expect(otherUpload.status).toBe(201);
     expect((await employee.get(`/employee-documents/${otherUpload.body.id}/download`)).status).toBe(403);
+    expect((await employee.delete(`/employee-documents/${otherUpload.body.id}`).set('Origin', ORIGIN)).status).toBe(403);
 
     const deleted = await admin.delete(`/employee-documents/${uploaded.body.id}`).set('Origin', ORIGIN);
     expect(deleted.status).toBe(200);
@@ -96,15 +101,10 @@ describe('Payroll-native workforce details', () => {
     expect(invalid.status).toBe(415);
   });
 
-  it('lets only the payroll team upload; the employee previews their own profile photo privately', async () => {
+  it('lets the employee upload, preview and delete their own profile photo privately', async () => {
     const photoBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=', 'base64');
-    const selfUpload = await employee
-      .post(`/employees/${employeeId}/documents`)
-      .set('Origin', ORIGIN)
-      .field('category', 'PROFILE_PHOTO')
-      .attach('file', photoBytes, { filename: 'profile.png', contentType: 'image/png' });
-    expect(selfUpload.status).toBe(403);
-    const uploaded = await admin
+    const before = (await employee.get(`/employees/${employeeId}/documents`)).body.length;
+    const uploaded = await employee
       .post(`/employees/${employeeId}/documents`)
       .set('Origin', ORIGIN)
       .field('category', 'PROFILE_PHOTO')
@@ -117,7 +117,21 @@ describe('Payroll-native workforce details', () => {
     expect(preview.headers['content-disposition']).toBe('inline');
     expect(preview.headers['cache-control']).toContain('no-store');
     expect(preview.body).toEqual(photoBytes);
-    expect((await employee.get(`/employees/${employeeId}/documents`)).body).toHaveLength(1);
-    expect((await admin.delete(`/employee-documents/${uploaded.body.id}`).set('Origin', ORIGIN)).status).toBe(200);
+    expect((await employee.get(`/employees/${employeeId}/documents`)).body).toHaveLength(before + 1);
+    const other = await prisma.employee.create({ data: { employeeCode: 'WF-003', fullName: 'Another Person', joiningDate: new Date('2024-01-01T00:00:00Z') } });
+    const foreign = await employee
+      .post(`/employees/${other.id}/documents`)
+      .set('Origin', ORIGIN)
+      .field('category', 'PROFILE_PHOTO')
+      .attach('file', photoBytes, { filename: 'profile.png', contentType: 'image/png' });
+    expect(foreign.status).toBe(403);
+    expect((await employee.delete(`/employee-documents/${uploaded.body.id}`).set('Origin', ORIGIN)).status).toBe(200);
+  });
+
+  it('lets the employee edit their own details but not their code or joining date', async () => {
+    const res = await employee.put('/me/employee').set('Origin', ORIGIN).send({ fullName: 'Workforce Renamed', contactPhone: '+91 98765 43210', panNumber: 'abcde1234f', uanNumber: '102242295762', employeeCode: 'HACK-1', joiningDate: '2020-01-01' });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body).toMatchObject({ fullName: 'Workforce Renamed', panNumber: 'ABCDE1234F', uanNumber: '102242295762', employeeCode: 'WF-001', joiningDate: '2024-01-01' });
+    expect((await employee.put('/me/employee').set('Origin', ORIGIN).send({ fullName: 'X', panNumber: 'bad' })).status).toBe(400);
   });
 });

@@ -4,11 +4,12 @@
  * reach another employee's data.
  */
 import { z } from 'zod';
-import { AppError, idParam, notFound, toIsoDate, type ApiRegistry, type AuthUser } from '@nexzi/server-core';
+import { AppError, idParam, notFound, renderPdf, toIsoDate, type ApiRegistry, type AuthUser } from '@nexzi/server-core';
 import { prisma } from '../db';
 import { audit } from '../audit';
 import { periodLabel } from '../payroll/service';
-import { storage } from '../output/routes';
+import { payslipData, storage } from '../output/routes';
+import { renderPayslipHtml } from '../output/templates';
 import { sendPdf } from '../output/report-export';
 import { balancesFor, createLeaveRequest, requestBody, serializeLeave } from '../leave/routes';
 import { bankBody, saveBankAccount, serializeBank } from '../bank/routes';
@@ -22,6 +23,36 @@ async function myEmployee(user: AuthUser) {
   return emp;
 }
 
+const optional = <T extends z.ZodTypeAny>(schema: T) => schema.nullable().optional().or(z.literal('').transform(() => null));
+const meBody = z.object({
+  fullName: z.string().trim().min(2, 'Enter your name.').max(120),
+  departmentId: z.string().uuid().nullable().optional(),
+  designationId: z.string().uuid().nullable().optional(),
+  contactEmail: optional(z.string().trim().toLowerCase().email('Enter a valid email address.').max(200)),
+  contactPhone: optional(z.string().trim().regex(/^\+?[0-9 ()-]{7,20}$/, 'Enter a phone number with 7–20 digits (spaces, +, - and brackets allowed).')),
+  panNumber: optional(z.string().trim().toUpperCase().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'Enter a 10-character PAN like ABCDE1234F.')),
+  uanNumber: optional(z.string().trim().regex(/^\d{12}$/, 'The UAN has 12 digits.')),
+  pfNumber: optional(z.string().trim().toUpperCase().regex(/^[A-Z0-9/]{5,30}$/, 'Use letters, digits and "/" (5–30 characters).')),
+});
+
+type MyEmployee = Awaited<ReturnType<typeof myEmployee>>;
+const serializeMe = (e: MyEmployee) => ({
+  id: e.id,
+  employeeCode: e.employeeCode,
+  fullName: e.fullName,
+  departmentId: e.departmentId,
+  department: e.department?.name ?? null,
+  designationId: e.designationId,
+  designation: e.designation?.name ?? null,
+  joiningDate: toIsoDate(e.joiningDate),
+  status: e.status,
+  contactEmail: e.contactEmail,
+  contactPhone: e.contactPhone,
+  panNumber: e.panNumber,
+  uanNumber: e.uanNumber,
+  pfNumber: e.pfNumber,
+});
+
 export function registerSelfServiceRoutes(r: ApiRegistry) {
   r.add({
     method: 'get',
@@ -31,7 +62,39 @@ export function registerSelfServiceRoutes(r: ApiRegistry) {
     permission: 'self.service',
     handler: async ({ user }) => {
       const e = await myEmployee(user);
-      return { id: e.id, employeeCode: e.employeeCode, fullName: e.fullName, department: e.department?.name ?? null, designation: e.designation?.name ?? null, joiningDate: toIsoDate(e.joiningDate), status: e.status, contactEmail: e.contactEmail, contactPhone: e.contactPhone };
+      return serializeMe(e);
+    },
+  });
+
+  r.add({
+    method: 'put',
+    path: '/me/employee',
+    tag: 'Self-service',
+    summary: 'Update my own employee details (employee code, joining date and status stay with the payroll team)',
+    permission: 'self.service',
+    body: meBody,
+    handler: async ({ body, user, ip }) => {
+      const e = await myEmployee(user);
+      const [dept, desig] = await Promise.all([
+        body.departmentId ? prisma.department.findUnique({ where: { id: body.departmentId }, select: { id: true } }) : null,
+        body.designationId ? prisma.designation.findUnique({ where: { id: body.designationId }, select: { id: true } }) : null,
+      ]);
+      if (body.departmentId && !dept) throw notFound('Department');
+      if (body.designationId && !desig) throw notFound('Designation');
+      const data = {
+        fullName: body.fullName,
+        departmentId: body.departmentId ?? null,
+        designationId: body.designationId ?? null,
+        contactEmail: body.contactEmail ?? null,
+        contactPhone: body.contactPhone ?? null,
+        panNumber: body.panNumber ?? null,
+        uanNumber: body.uanNumber ?? null,
+        pfNumber: body.pfNumber ?? null,
+      };
+      const updated = await prisma.employee.update({ where: { id: e.id }, data: { ...data, updatedById: user.id }, include: { department: true, designation: true } });
+      const before = Object.fromEntries(Object.keys(data).map((k) => [k, e[k as keyof typeof data]]));
+      await audit.write({ actorId: user.id, action: 'self.details_updated', entity: 'employee', entityId: e.id, before, after: data, ip });
+      return serializeMe(updated);
     },
   });
 
@@ -62,9 +125,12 @@ export function registerSelfServiceRoutes(r: ApiRegistry) {
       // Ownership is part of the query: someone else's payslip id simply is not found.
       const slip = await prisma.payslip.findFirst({ where: { id: params.id, employeeId: e.id, supersededAt: null, payrollRun: { status: 'FINALISED' } }, include: { payrollRun: true } });
       if (!slip) throw notFound('Payslip');
-      const pdf = await storage.read(slip.fileKey);
+      // Rendered in the current approved layout so every month looks the same; the stored copy
+      // issued at finalisation is the fallback if rendering is unavailable.
+      const period = periodLabel(slip.payrollRun.year, slip.payrollRun.month);
+      const pdf = await renderPdf(renderPayslipHtml(await payslipData(slip.payrollRunId, [e.id])), { footerText: `Payslip ${period} · ${e.employeeCode}` }).catch(() => storage.read(slip.fileKey));
       if (!pdf) throw new AppError('NOT_FOUND', 'This payslip file is not available. Ask the payroll team to generate it again.');
-      await audit.write({ actorId: user.id, action: 'self.payslip_downloaded', entity: 'payslip', entityId: slip.id, metadata: { period: periodLabel(slip.payrollRun.year, slip.payrollRun.month) }, ip });
+      await audit.write({ actorId: user.id, action: 'self.payslip_downloaded', entity: 'payslip', entityId: slip.id, metadata: { period }, ip });
       sendPdf(res, pdf, `payslip-${e.employeeCode}-${slip.payrollRun.year}-${String(slip.payrollRun.month).padStart(2, '0')}.pdf`, query.disposition === 'inline');
     },
   });
