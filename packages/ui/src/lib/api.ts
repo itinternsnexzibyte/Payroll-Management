@@ -78,6 +78,31 @@ export async function api<T = unknown>(path: string, init: { method?: string; bo
 }
 
 export const get = <T>(path: string, signal?: AbortSignal) => api<T>(path, { signal });
+
+/**
+ * The API is unreachable (asleep, restarting or mid-deploy) rather than refusing the request.
+ * A bare 500 with no API error code comes from the web proxy failing to reach the API at all.
+ */
+export const isServerUnavailable = (e: unknown) =>
+  e instanceof ApiError && (e.status === 0 || e.status === 502 || e.status === 503 || e.status === 504 || (e.status === 500 && e.code === 'HTTP_500'));
+
+/**
+ * Polls the API's readiness check until it answers, for hosts that put an idle server to sleep.
+ * Resolves true once ready, false after `timeoutMs`.
+ */
+export async function waitForServer(timeoutMs = 120_000, signal?: AbortSignal): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline && !signal?.aborted) {
+    try {
+      const res = await fetch('/api/ready', { cache: 'no-store', signal });
+      if (res.ok) return true;
+    } catch {
+      /* still waking up */
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  return false;
+}
 export const post = <T>(path: string, body?: unknown) => api<T>(path, { method: 'POST', body: body ?? {} });
 export const put = <T>(path: string, body: unknown) => api<T>(path, { method: 'PUT', body });
 export const del = <T>(path: string) => api<T>(path, { method: 'DELETE' });
