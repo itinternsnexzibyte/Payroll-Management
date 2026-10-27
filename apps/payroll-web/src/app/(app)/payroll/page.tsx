@@ -110,7 +110,6 @@ function RunsList() {
             { key: 'employees', header: 'Employees', align: 'right', render: (r) => r.employeeCount },
             { key: 'earnings', header: 'Gross', align: 'right', render: (r) => formatMoney(r.totalEarnings) },
             { key: 'net', header: 'Net pay', align: 'right', render: (r) => <strong>{formatMoney(r.totalNet)}</strong> },
-            { key: 'rules', header: 'Rules', render: (r) => (r.status === 'DRAFT' ? '—' : r.rulesApproved ? <Badge tone="success">Approved</Badge> : <Badge tone="warning">Provisional</Badge>) },
             { key: 'createdAt', header: 'Last update', sortable: true, render: (r) => formatDateTime(r.finalisedAt ?? r.calculatedAt ?? r.createdAt) },
           ]}
         />

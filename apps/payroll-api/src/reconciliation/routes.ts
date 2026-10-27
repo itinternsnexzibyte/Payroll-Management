@@ -141,7 +141,6 @@ export function registerReconciliationRoutes(r: ApiRegistry) {
         subtitle: `${d.summary.unresolved} unresolved · ${d.summary.expected} expected · ${d.summary.resolved} resolved · net ${d.totals.base.net} → ${d.totals.compare.net} (${pctText(d.totals.netChangePercent) || 'n/a'})`,
         banners: [
           ...[d.base, d.compare].filter((x) => x.status !== 'FINALISED').map((x) => `${x.period} is not finalised (${x.status.replace('_', ' ').toLowerCase()}); figures may change.`),
-          ...([d.base, d.compare].some((x) => !x.rulesApproved) ? ['PROVISIONAL — calculation rules not yet reconciled with the client-approved workbook.'] : []),
         ],
         columns: [
           { header: 'Employee ID', key: 'code' },

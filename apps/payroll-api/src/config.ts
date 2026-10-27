@@ -24,7 +24,7 @@ export const config = parseEnv({
     .string()
     .optional()
     .refine((v) => !v || Buffer.from(v, 'base64').length === 32, 'CLIENT_DATA_KEY must be 32 bytes, base64-encoded'),
-  PAYSLIP_COMPANY_NAME: z.string().default('[Client company name — awaiting approved payslip format]'),
+  PAYSLIP_COMPANY_NAME: z.string().default('NexziByte Solutions Pvt Ltd'),
 });
 
 export const COOKIE_NAME = config.COOKIE_SECURE ? '__Host-payroll_session' : 'payroll_session';

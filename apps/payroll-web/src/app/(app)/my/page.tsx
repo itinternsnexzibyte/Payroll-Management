@@ -1,8 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Download, Eye, FileText, UserRound } from 'lucide-react';
-import { Alert, Button, Card, DataTable, EmptyState, ErrorState, PageHeader, RequirePermission, Spinner, download, errorMessage, formatDateTime, get, openPdf, useToast } from '@nexzi/ui';
+import { Download, FileText, UserRound } from 'lucide-react';
+import { Alert, Button, Card, DataTable, EmptyState, ErrorState, PageHeader, RequirePermission, Spinner, download, errorMessage, formatDateTime, get, useToast } from '@nexzi/ui';
 
 interface Me {
   id: string;
@@ -19,7 +19,7 @@ export default function MyPage() {
   const slips = useQuery({ queryKey: ['me-payslips'], queryFn: () => get<Slip[]>('/me/payslips'), retry: false, enabled: me.isSuccess });
   return (
     <RequirePermission permission="self.service">
-      <PageHeader title="Employee dashboard" description="Your issued payslips — view or download each month in the NexziByte payslip format. They appear here once a payroll month is finalised." breadcrumbs={[{ label: 'Employee dashboard' }]} actions={<div className="flex gap-4"><Link href="/my/form16" className="inline-flex items-center gap-2 text-sm font-medium text-cobalt hover:underline"><FileText className="h-4 w-4" /> My Form 16</Link><Link href="/my/account" className="inline-flex items-center gap-2 text-sm font-medium text-cobalt hover:underline"><UserRound className="h-4 w-4" /> My profile</Link></div>} />
+      <PageHeader title="Employee dashboard" description="Your issued payslips — download each month in the NexziByte payslip format. They appear here once a payroll month is finalised." breadcrumbs={[{ label: 'Employee dashboard' }]} actions={<div className="flex gap-4"><Link href="/my/form16" className="inline-flex items-center gap-2 text-sm font-medium text-cobalt hover:underline"><FileText className="h-4 w-4" /> My Form 16</Link><Link href="/my/account" className="inline-flex items-center gap-2 text-sm font-medium text-cobalt hover:underline"><UserRound className="h-4 w-4" /> My profile</Link></div>} />
       {me.isLoading ? (
         <Spinner />
       ) : me.error ? (
@@ -43,7 +43,6 @@ export default function MyPage() {
                   align: 'right',
                   render: (s) => (
                     <span className="inline-flex gap-1">
-                      <Button size="sm" variant="ghost" icon={<Eye className="h-4 w-4" />} onClick={() => openPdf(`/me/payslips/${s.id}?disposition=inline`).catch((e) => toast.error(errorMessage(e)))}>View</Button>
                       <Button size="sm" variant="secondary" icon={<Download className="h-4 w-4" />} onClick={() => download(`/me/payslips/${s.id}`, `payslip-${s.period}.pdf`).catch((e) => toast.error(errorMessage(e)))}>Download</Button>
                     </span>
                   ),

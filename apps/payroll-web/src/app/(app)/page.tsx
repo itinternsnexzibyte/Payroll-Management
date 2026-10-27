@@ -76,7 +76,6 @@ export default function DashboardPage() {
               ) : (
                 <SimpleBarChart data={d.netTrend.map((t) => ({ label: t.label, value: Number(t.totalNet) }))} valueLabel="Total net pay" money />
               )}
-              {!d.rulesApproved && d.netTrend && d.netTrend.length > 0 && <p className="mt-2 text-xs text-warning">Provisional — calculation rules not yet client-approved.</p>}
             </Card>
             <Card title="Quick actions">
               <ul className="grid gap-2">

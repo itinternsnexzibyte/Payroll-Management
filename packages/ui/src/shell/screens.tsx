@@ -126,7 +126,6 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
             ))}
           </ul>
         </div>
-        <p className="relative z-10 text-xs text-haze/80">Authorised users only. Activity is recorded in the audit trail.</p>
                       </div>
       <div className="relative flex items-center justify-center overflow-hidden bg-surface px-6 py-12">
         <AmbientBackground className="!absolute" />

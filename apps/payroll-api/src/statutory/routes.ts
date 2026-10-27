@@ -156,7 +156,6 @@ export function registerStatutoryRoutes(r: ApiRegistry) {
         subtitle: `${members.length} employees · ${settings.confirmedBy ? `figures confirmed by ${settings.confirmedBy} on ${settings.confirmedOn}` : 'statutory figures not confirmed'}`,
         banners: [
           ...(run.status !== 'FINALISED' ? [`Payroll status: ${run.status.replace('_', ' ')} — figures are not final.`] : []),
-          'Rates, ceilings and slabs are those entered in Statutory settings. Verify against current EPFO, ESIC and Income-tax rules before filing.',
         ],
         columns: [
           { header: 'Employee ID', key: 'code' },

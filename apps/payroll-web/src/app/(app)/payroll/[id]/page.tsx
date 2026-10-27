@@ -146,7 +146,6 @@ function RunWorkspace() {
         badge={
           <>
             <StatusBadge status={run.status} />
-            {run.status !== 'DRAFT' && (run.rulesApproved ? <Badge tone="success">Rules approved</Badge> : <Badge tone="warning">Provisional rules</Badge>)}
           </>
         }
         description={`${run.employeeCount} employees${run.calculatedAt ? ` · calculated ${formatDateTime(run.calculatedAt)}` : ''}${run.finalisedAt ? ` · finalised ${formatDateTime(run.finalisedAt)}` : ''}`}
@@ -197,9 +196,6 @@ function RunWorkspace() {
         <Alert tone="danger" className="mb-4" title={`${errors + pending} employee(s) have blocking exceptions`}>
           Missing inputs, missing salary structures or unconfigured formulas must be resolved and the payroll recalculated before it can be submitted.
         </Alert>
-      )}
-      {run.status === 'FINALISED' && !run.rulesApproved && (
-        <Alert tone="warning" className="mb-4">This run was finalised with provisional calculation rules. Payslips are watermarked PROVISIONAL.</Alert>
       )}
 
       {run.canSeeAmounts && run.status !== 'DRAFT' && (
