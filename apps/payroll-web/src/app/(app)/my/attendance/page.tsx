@@ -151,7 +151,7 @@ export default function MyAttendancePage() {
 
   return (
     <RequirePermission permission="self.service">
-      <PageHeader title="My attendance" description="Check in and out, manage breaks, and review your recorded work sessions." breadcrumbs={[{ label: 'My account' }, { label: 'My attendance' }]} />
+      <PageHeader title="My attendance" description="Check in and out, manage breaks, and review your recorded work sessions." breadcrumbs={[{ label: 'Employee dashboard', href: '/my' }, { label: 'My attendance' }]} />
       {state.isLoading ? <Spinner /> : state.error ? <Alert tone="danger">{errorMessage(state.error)}</Alert> : (
         <div className="space-y-5">
           {heartbeatError && <Alert tone="warning" title="Connection issue">{heartbeatError} Keep this page open and connected. If the session is automatically checked out, you can request reactivation below.</Alert>}

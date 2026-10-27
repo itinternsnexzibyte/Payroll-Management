@@ -6,12 +6,12 @@ import { AppShell, BrandMark, Spinner, useAuth, type NavItem } from '@nexzi/ui';
 
 const NAV: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard, permission: 'payroll.view' },
-  { label: 'My payslips', href: '/my', icon: FileText, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
-  { label: 'My Form 16', href: '/my/form16', icon: FileBadge, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
-  { label: 'My account', href: '/my/account', icon: UserRound, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
-  { label: 'My leave', href: '/my/leave', icon: CalendarDays, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
-  { label: 'My attendance', href: '/my/attendance', icon: CalendarCheck2, permission: 'self.service', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
-  { label: 'Notifications', href: '/notifications', icon: Bell, permission: 'notifications.view', section: 'My account', when: (u) => Boolean(u.employeeLinked) },
+  { label: 'My payslips', href: '/my', icon: FileText, permission: 'self.service', section: 'Employee dashboard', when: (u) => Boolean(u.employeeLinked) },
+  { label: 'My Form 16', href: '/my/form16', icon: FileBadge, permission: 'self.service', section: 'Employee dashboard', when: (u) => Boolean(u.employeeLinked) },
+  { label: 'My profile', href: '/my/account', icon: UserRound, permission: 'self.service', section: 'Employee dashboard', when: (u) => Boolean(u.employeeLinked) },
+  { label: 'My leave', href: '/my/leave', icon: CalendarDays, permission: 'self.service', section: 'Employee dashboard', when: (u) => Boolean(u.employeeLinked) },
+  { label: 'My attendance', href: '/my/attendance', icon: CalendarCheck2, permission: 'self.service', section: 'Employee dashboard', when: (u) => Boolean(u.employeeLinked) },
+  { label: 'Notifications', href: '/notifications', icon: Bell, permission: 'notifications.view', section: 'Employee dashboard', when: (u) => Boolean(u.employeeLinked) },
   { label: 'Payroll runs', href: '/payroll', icon: CalendarCheck2, permission: 'payroll.view', section: 'Payroll' },
   { label: 'Readiness monitor', href: '/readiness', icon: Activity, permission: 'payroll.view', section: 'Payroll' },
   { label: 'Payroll alerts', href: '/alerts', icon: ShieldAlert, permission: 'payroll.view_amounts', section: 'Payroll' },

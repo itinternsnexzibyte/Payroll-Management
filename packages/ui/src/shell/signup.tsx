@@ -196,7 +196,7 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
             )}
             <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-ink">Create your account</h2>
             <p className="mt-1 text-sm text-muted">
-              {accountType === 'ADMIN' ? 'as an Administrator' : 'as a User'} for {appName}
+              {accountType === 'ADMIN' ? 'as an Administrator' : 'as an Employee'} for {appName}
             </p>
           </div>
 
@@ -219,7 +219,7 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
                   <p className="text-xs text-muted">
                     {accountType === 'ADMIN'
                       ? 'Administrator accounts can manage users, settings and approvals. Your request is activated only after an existing Administrator approves it.'
-                      : 'User accounts run day-to-day payroll: inputs, calculation, alerts, reconciliation, payslips and reports.'}
+                      : 'Employee accounts open the Employee dashboard: your payslips, profile, leave and attendance.'}
                     {!adminAllowed && ' Administrator sign-up is turned off.'}
                   </p>
                 </div>
@@ -228,7 +228,7 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
                 <p className="flex items-center gap-2 text-xs text-muted">
                   Account type:
                   <span className={cn('rounded-full px-2 py-0.5 font-medium', accountType === 'ADMIN' ? 'bg-mist text-primary' : 'bg-accent-bg text-accent-ink')}>
-                    {accountType === 'ADMIN' ? 'Administrator (needs approval)' : 'User'}
+                    {accountType === 'ADMIN' ? 'Administrator (needs approval)' : 'Employee'}
                   </span>
                 </p>
               )}
@@ -288,7 +288,7 @@ export function SignupScreen({ appName, tagline, company, logo, brandLogo, featu
                     <Input id="su-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} invalid={!!errors.confirm} />
                   </Field>
                   <Button type="submit" className="w-full" loading={busy}>
-                    {accountType === 'ADMIN' ? 'Request Administrator account' : 'Create User account'}
+                    {accountType === 'ADMIN' ? 'Request Administrator account' : 'Create Employee account'}
                   </Button>
                 </form>
               )}

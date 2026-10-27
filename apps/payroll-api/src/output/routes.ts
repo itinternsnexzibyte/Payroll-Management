@@ -85,7 +85,14 @@ export async function payslipData(runId: string, employeeIds?: string[]): Promis
         const employerShare = (ref: string) =>
           money(lines.filter((l) => l.employeeId === m.employeeId && (l.calcDetail as Record<string, unknown> | null)?.formulaRef === ref).reduce((acc, l) => acc.add(dec(String((l.calcDetail as Record<string, unknown>).employerContribution ?? '0'))), new Dec(0)));
         const employedDays = summary.employedDays ?? employedDaysInMonth(m.employee, run.year, run.month);
-        const employer = { pf: summary.employerPf ?? employerShare('STATUTORY_PF'), esi: summary.employerEsi ?? employerShare('STATUTORY_ESI'), gratuity: summary.gratuity ?? '0.00' };
+        // Gratuity: runs calculated before it was reported fall back to today's policy (rate × base components).
+        const gratuityFallback = () => {
+          const g = settings.gratuity;
+          if (!g?.enabled) return '0.00';
+          const base = mine.filter((l) => l.componentType === 'EARNING' && g.baseComponents.includes(l.componentCode)).reduce((acc, l) => acc.add(dec(l.amount.toString())), new Dec(0));
+          return money(base.mul(dec(String(g.ratePercent))).div(100));
+        };
+        const employer = { pf: summary.employerPf ?? employerShare('STATUTORY_PF'), esi: summary.employerEsi ?? employerShare('STATUTORY_ESI'), gratuity: summary.gratuity ?? gratuityFallback() };
         const gross = m.gross?.toString() ?? '0';
         const net = m.net?.toString() ?? '0';
         const bank = m.employee.bankAccount;
@@ -119,7 +126,6 @@ export async function payslipData(runId: string, employeeIds?: string[]): Promis
           net,
           netInWords: amountInWords(money(dec(net))),
           employer: {
-            show: [employer.pf, employer.esi, employer.gratuity].some((v) => !dec(v).isZero()),
             ...employer,
             ctc: money(dec(gross).add(dec(employer.pf)).add(dec(employer.esi)).add(dec(employer.gratuity))),
           },

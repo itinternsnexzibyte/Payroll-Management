@@ -86,7 +86,7 @@ export function EmployeeWorkforceProfileTab({ employeeId, canManage }: { employe
     <Card title="Workforce profile">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Teams ID"><Input disabled={!canManage} value={form.teamsId ?? ''} onChange={(event) => update('teamsId', event.target.value)} maxLength={150} /></Field>
-        <Field label="Internship role"><Input disabled={!canManage} value={form.internshipRole ?? ''} onChange={(event) => update('internshipRole', event.target.value)} maxLength={150} /></Field>
+        <Field label="Role"><Input disabled={!canManage} value={form.internshipRole ?? ''} onChange={(event) => update('internshipRole', event.target.value)} maxLength={150} /></Field>
         <Field label="College"><Input disabled={!canManage} value={form.college ?? ''} onChange={(event) => update('college', event.target.value)} maxLength={200} /></Field>
         <Field label="Course"><Input disabled={!canManage} value={form.course ?? ''} onChange={(event) => update('course', event.target.value)} maxLength={150} /></Field>
         <Field label="Duration (months)"><Input disabled={!canManage} type="number" min={1} max={60} value={form.durationMonths ?? ''} onChange={(event) => update('durationMonths', event.target.value)} /></Field>

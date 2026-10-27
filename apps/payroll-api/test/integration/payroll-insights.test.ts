@@ -128,7 +128,7 @@ describe('branded payslip', () => {
     expect(s.contributions).toEqual([{ name: 'Provident Fund', amount: '1800' }]);
     expect(s.deductions).toEqual([{ name: 'Professional Tax', amount: '200' }]);
     expect(s).toMatchObject({ pan: 'ABCDE1234F', uan: '102242295762', manager: 'Team Lead', gross: '125000', net: '123000', netInWords: 'One Lakh Twenty Three Thousand Rupees only' });
-    expect(s.employer).toMatchObject({ show: true, pf: '1800.00', gratuity: '3006.25', ctc: '129806.25' });
+    expect(s.employer).toMatchObject({ pf: '1800.00', gratuity: '3006.25', ctc: '129806.25' });
   });
 });
 

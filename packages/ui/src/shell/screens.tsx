@@ -21,10 +21,10 @@ import { AmbientBackground, BrandPanelArt } from '../components/effects';
 
 export type Portal = 'USER' | 'ADMIN';
 
-/** "User / Administrator" switch used on the sign-in and sign-up screens. */
+/** "Employee / Administrator" switch used on the sign-in and sign-up screens. */
 export function PortalSwitch({ value, onChange, label, adminDisabled }: { value: Portal; onChange: (p: Portal) => void; label: string; adminDisabled?: boolean }) {
   const options: { id: Portal; title: string; Icon: typeof UserRound }[] = [
-    { id: 'USER', title: 'User', Icon: UserRound },
+    { id: 'USER', title: 'Employee', Icon: UserRound },
     { id: 'ADMIN', title: 'Administrator', Icon: ShieldCheck },
   ];
   return (
@@ -55,7 +55,7 @@ export function PortalSwitch({ value, onChange, label, adminDisabled }: { value:
   );
 }
 
-/** Sign-in screen with lockout / expiry messaging, and a User / Administrator sign-in choice. */
+/** Sign-in screen with lockout / expiry messaging, and an Employee / Administrator sign-in choice. */
 export function LoginScreen({ appName, tagline, company, logo, brandLogo, features }: { appName: string; tagline: string; company: string; logo: ReactNode; brandLogo?: BrandLogo; features: string[] }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -139,7 +139,7 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
             )}
             <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-ink">Sign in</h2>
             <p className="mt-1 text-sm text-muted">
-              {portal === 'ADMIN' ? 'as an Administrator' : 'as a User'} to {appName}
+              {portal === 'ADMIN' ? 'as an Administrator' : 'as an Employee'} to {appName}
             </p>
           </div>
           <PortalSwitch value={portal} onChange={choosePortal} label="Sign in as" />
@@ -152,7 +152,7 @@ export function LoginScreen({ appName, tagline, company, logo, brandLogo, featur
             <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} invalid={!!errors.password} />
           </Field>
           <Button type="submit" className="w-full" loading={busy}>
-            {portal === 'ADMIN' ? 'Sign in as Administrator' : 'Sign in as User'}
+            {portal === 'ADMIN' ? 'Sign in as Administrator' : 'Sign in as Employee'}
           </Button>
           <p className="text-center text-xs text-muted">Forgotten your password? Ask an administrator to reset it.</p>
           {signupCfg.data?.enabled && (

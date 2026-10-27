@@ -17,7 +17,7 @@ export function registerMasterRoutes(r: ApiRegistry) {
       path: `/${kind}`,
       tag: 'Masters',
       summary: `List ${kind}`,
-      permission: ['employees.view', 'settings.manage'],
+      permission: ['employees.view', 'settings.manage', 'self.service'],
       handler: async () => model().findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { employees: true } } } }),
     });
     r.add({

@@ -30,6 +30,14 @@ async function canAccessEmployee(user: AuthUser, employeeId: string) {
   return linked?.employeeId === employeeId;
 }
 
+/** The payroll team edits any employee; a self-service account edits only its own linked record. */
+async function canEditEmployee(user: AuthUser, employeeId: string) {
+  if (user.permissions.has('employees.manage')) return true;
+  if (!user.permissions.has('self.service')) return false;
+  const linked = await prisma.user.findUnique({ where: { id: user.id }, select: { employeeId: true } });
+  return linked?.employeeId === employeeId;
+}
+
 function actualFileType(buffer: Buffer, extension: string) {
   if (extension === 'pdf' && buffer.subarray(0, 5).toString('ascii') === '%PDF-') return { extension: 'pdf', contentType: 'application/pdf' };
   if (extension === 'png' && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return { extension: 'png', contentType: 'image/png' };
@@ -88,11 +96,12 @@ export function registerEmployeeWorkforceDetailsRoutes(r: ApiRegistry) {
     method: 'put',
     path: '/employees/:id/workforce-profile',
     tag: 'Workforce',
-    summary: 'Create or update an employee workforce profile',
-    permission: 'employees.manage',
+    summary: 'Create or update an employee workforce profile (employees may edit their own)',
+    permission: ['employees.manage', 'self.service'],
     params: employeeParam,
     body: profileBody,
     handler: async ({ params, body, user, ip }) => {
+      if (!(await canEditEmployee(user, params.id))) throw new AppError('FORBIDDEN', 'You can only edit your own workforce profile.');
       if (!(await prisma.employee.findUnique({ where: { id: params.id }, select: { id: true } }))) throw notFound('Employee');
       const profile = await prisma.employeeWorkforceProfile.upsert({
         where: { employeeId: params.id },
@@ -184,13 +193,14 @@ export function registerEmployeeWorkforceDetailsRoutes(r: ApiRegistry) {
     method: 'post',
     path: '/employees/:id/documents',
     tag: 'Workforce',
-    summary: 'Upload a private employee document or profile photo (payroll team only)',
-    permission: 'employees.manage',
+    summary: 'Upload a private employee document or profile photo (employees may upload their own)',
+    permission: ['employees.manage', 'self.service'],
     params: employeeParam,
     body: documentBody,
     upload: { field: 'file', maxBytes: maxDocumentBytes, extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp'] },
     status: 201,
     handler: async ({ params, body, user, ip, file }) => {
+      if (!(await canEditEmployee(user, params.id))) throw new AppError('FORBIDDEN', 'You can only upload your own documents.');
       if (!(await prisma.employee.findUnique({ where: { id: params.id }, select: { id: true } }))) throw notFound('Employee');
       if (!file || file.size > maxDocumentBytes) throw new AppError('PAYLOAD_TOO_LARGE', 'The document exceeds the 5 MB limit.');
       const extension = path.extname(file.originalName).slice(1).toLowerCase();
@@ -255,12 +265,13 @@ export function registerEmployeeWorkforceDetailsRoutes(r: ApiRegistry) {
     method: 'delete',
     path: '/employee-documents/:id',
     tag: 'Workforce',
-    summary: 'Delete a private employee document',
-    permission: 'employees.manage',
+    summary: 'Delete a private employee document (employees may delete their own)',
+    permission: ['employees.manage', 'self.service'],
     params: idParam,
     handler: async ({ params, user, ip }) => {
       const document = await prisma.employeeDocument.findUnique({ where: { id: params.id } });
       if (!document) throw notFound('Employee document');
+      if (!(await canEditEmployee(user, document.employeeId))) throw new AppError('FORBIDDEN', 'You can only delete your own documents.');
       await unlink(storedFilePath(document.storedName)).catch((error: unknown) => {
         if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return;
         throw error;
