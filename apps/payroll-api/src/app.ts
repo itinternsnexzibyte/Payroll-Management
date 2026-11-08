@@ -37,6 +37,7 @@ import { registerExplainerRoutes } from './insights/explainer';
 import { registerFraudRoutes } from './insights/fraud';
 import { registerPolicyLabRoutes } from './insights/policy-lab';
 import { registerReadinessRoutes } from './insights/readiness';
+import { registerEpfoRoutes } from './epfo/routes';
 
 export const logger = createLogger('payroll-api', config.LOG_LEVEL);
 
@@ -89,6 +90,7 @@ export function createApp() {
       registerAutoPayrollRoutes(r);
       registerPayrollRoutes(r);
       registerOutputRoutes(r);
+      registerEpfoRoutes(r);
       registerAnomalyRoutes(r);
       registerReconciliationRoutes(r);
       registerKnowledgeRoutes(r);

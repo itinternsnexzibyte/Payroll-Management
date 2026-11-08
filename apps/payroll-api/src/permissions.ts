@@ -41,6 +41,9 @@ export const PERMISSIONS = {
   'notifications.view': 'View and manage notifications for the linked employee',
   'clients.view': 'View client profiles and availability',
   'clients.manage': 'Create and manage client profiles and private documents',
+    'epfo.view': 'View EPFO ECR previews and return history',
+  'epfo.generate': 'Generate and download EPFO ECR files',
+  'epfo.manage': 'Update EPFO return and submission details',
   'clients.sensitive.view': 'View sensitive client identity and MOU documents',
 } as const;
 

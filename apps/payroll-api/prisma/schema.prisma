@@ -558,6 +558,7 @@ model PayrollRun {
   lines           PayrollLine[]
   events          PayrollRunEvent[]
   payslips        Payslip[]
+  epfoReturns     EpfoEcrReturn[]
   anomalies       PayrollAnomaly[]
   checklist       PayrollRunChecklist[]
   reconAsBase     ReconciliationNote[]  @relation("ReconBase")
@@ -1193,4 +1194,50 @@ model PayrollScenario {
 
   @@index([createdAt])
   @@map("payroll_scenarios")
+}
+// ---------------------------------------------------------------- EPFO ECR
+
+enum EpfoEcrReturnType {
+  REGULAR
+  SUPPLEMENTARY
+  REVISED
+}
+
+enum EpfoEcrStatus {
+  GENERATED
+  UPLOADED
+  PAID
+  REJECTED
+}
+
+/// Stores generated EPFO ECR returns and their submission history.
+model EpfoEcrReturn {
+  id               String            @id @default(uuid()) @db.Uuid
+  payrollRunId     String            @db.Uuid
+  payrollRun       PayrollRun        @relation(fields: [payrollRunId], references: [id], onDelete: Restrict)
+
+  returnType       EpfoEcrReturnType
+  contributionRate Decimal           @db.Decimal(5, 2)
+  status           EpfoEcrStatus     @default(GENERATED)
+
+  recordCount      Int
+  records          Json
+  validation       Json
+
+  fileKey          String
+  sha256           String            @db.VarChar(64)
+  sizeBytes        Int
+
+  trrn             String?           @db.VarChar(30)
+  challanNumber    String?           @db.VarChar(50)
+  paymentReference String?
+  uploadResult     Json?
+
+  generatedById    String?           @db.Uuid
+  generatedAt      DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([payrollRunId, generatedAt])
+  @@index([status])
+  @@map("epfo_ecr_returns")
 }

@@ -31,7 +31,7 @@ services:
           name: payroll-db
           property: connectionString
       - key: ALLOWED_ORIGINS
-        value: https://payroll-web.onrender.com
+        value: https://payroll-web-qexw.onrender.com
       - key: PUBLIC_API_PREFIX
         value: /api
       - key: COOKIE_SECURE

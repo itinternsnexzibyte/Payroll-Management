@@ -19,3 +19,6 @@ storage/
 e2e/report/
 e2e/test-results/
 coverage/
+
+# Local development environment
+.env.local

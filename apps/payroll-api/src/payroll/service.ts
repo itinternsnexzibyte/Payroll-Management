@@ -319,7 +319,7 @@ export async function submitForReview(user: AuthUser, runId: string, acknowledge
     await addEvent(tx, runId, 'SUBMITTED', run.status, 'UNDER_REVIEW', user, warnings ? `${warnings} warning(s) acknowledged` : undefined);
     await audit.tx(tx, { actorId: user.id, action: 'payroll.submitted', entity: 'payroll_run', entityId: runId, metadata: { warningsAcknowledged: warnings }, ip });
     return { status: 'UNDER_REVIEW' as const };
-  });
+  }, { timeout: 120_000 });
 }
 
 export async function returnRun(user: AuthUser, runId: string, reason: string, ip: string | null) {
@@ -344,8 +344,8 @@ export async function approve(user: AuthUser, runId: string, ip: string | null) 
     await tx.payrollRun.update({ where: { id: runId }, data: { status: 'APPROVED', approvedAt: new Date(), approvedById: user.id, version: { increment: 1 } } });
     await addEvent(tx, runId, 'APPROVED', run.status, 'APPROVED', user);
     await audit.tx(tx, { actorId: user.id, action: 'payroll.approved', entity: 'payroll_run', entityId: runId, ip });
-    return { status: 'APPROVED' as const };
-  });
+        return { status: 'APPROVED' as const };
+  }, { timeout: 120_000 });
 }
 
 export async function finalise(user: AuthUser, runId: string, ip: string | null) {

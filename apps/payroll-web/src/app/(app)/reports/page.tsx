@@ -1,4 +1,6 @@
+﻿
 'use client';
+
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileDown, FileSpreadsheet } from 'lucide-react';
@@ -36,14 +38,62 @@ interface Report {
   totals?: Record<string, string | number | null>;
 }
 
+interface EpfoPayrollRun {
+  id: string;
+  year: number;
+  month: number;
+  status: string;
+  employeeCount?: number;
+  finalisedAt?: string | null;
+}
+
+interface EpfoRecord {
+  employeeId: string;
+  employeeCode: string;
+  uan: string | null;
+  memberName: string;
+  grossWages: string | null;
+  epfWages: string | null;
+  employeePfContribution: string | null;
+  employerPfContribution: string | null;
+  warnings: string[];
+  readyForGeneration: boolean;
+}
+
+interface EpfoPreview {
+  payrollRun: {
+    id: string;
+    year: number;
+    month: number;
+    status: string;
+  };
+  recordCount: number;
+  warningCount: number;
+  readyForGeneration: boolean;
+  message: string;
+  records: EpfoRecord[];
+}
+
 export default function ReportsPage() {
   const { can } = useAuth();
   const [tab, setTab] = useState<'run' | 'employee'>('run');
+
   return (
     <RequirePermission permission="reports.view">
-      <PageHeader title="Reports" description="Monthly summary, register, earnings, deductions, net payable, statutory deductions and employee salary statements — on screen, as PDF or as XLSX." breadcrumbs={[{ label: 'Dashboard', href: '/' }, { label: 'Reports' }]} />
+      <PageHeader
+        title="Reports"
+        description="Monthly summary, register, earnings, deductions, net payable, statutory deductions, EPFO ECR preview and employee salary statements — on screen, as PDF or as XLSX."
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/' },
+          { label: 'Reports' },
+        ]}
+      />
+
       {!can('payroll.view_amounts') ? (
-        <Alert tone="warning">Your role does not include permission to view payroll amounts, so reports are not available.</Alert>
+        <Alert tone="warning">
+          Your role does not include permission to view payroll amounts,
+          so reports are not available.
+        </Alert>
       ) : (
         <>
           <Tabs
@@ -54,6 +104,7 @@ export default function ReportsPage() {
               { id: 'employee', label: 'Employee salary statement' },
             ]}
           />
+
           {tab === 'run' ? <RunReports /> : <EmployeeStatement />}
         </>
       )}
@@ -61,60 +112,127 @@ export default function ReportsPage() {
   );
 }
 
-function ReportView({ path, filename }: { path: string; filename: string }) {
+function ReportView({
+  path,
+  filename,
+}: {
+  path: string;
+  filename: string;
+}) {
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
-  const q = useQuery({ queryKey: ['report', path], queryFn: () => get<Report>(path) });
+
+  const q = useQuery({
+    queryKey: ['report', path],
+    queryFn: () => get<Report>(path),
+  });
+
   const exp = async (format: 'pdf' | 'xlsx') => {
     setBusy(format);
+
     try {
-      await download(`${path}&format=${format}`, `${filename}.${format}`);
+      await download(
+        `${path}&format=${format}`,
+        `${filename}.${format}`,
+      );
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
       setBusy(null);
     }
   };
+
   if (q.isLoading) return <Spinner />;
-  if (q.error || !q.data) return <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />;
+
+  if (q.error || !q.data) {
+    return (
+      <ErrorState
+        message={errorMessage(q.error)}
+        onRetry={() => q.refetch()}
+      />
+    );
+  }
+
   const r = q.data;
-  const cell = (c: Report['columns'][number], row: Record<string, string | number | null>) => (c.numeric ? formatMoney(row[c.key] as string) : (row[c.key] ?? '—'));
+
+  const cell = (
+    c: Report['columns'][number],
+    row: Record<string, string | number | null>,
+  ) =>
+    c.numeric
+      ? formatMoney(row[c.key] as string)
+      : (row[c.key] ?? '—');
+
   return (
     <Card
       title={r.title}
       padded={false}
       actions={
         <>
-          <Button size="sm" variant="secondary" icon={<FileDown className="h-4 w-4" />} loading={busy === 'pdf'} onClick={() => exp('pdf')}>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<FileDown className="h-4 w-4" />}
+            loading={busy === 'pdf'}
+            disabled={busy !== null}
+            onClick={() => exp('pdf')}
+          >
             PDF
           </Button>
-          <Button size="sm" variant="secondary" icon={<FileSpreadsheet className="h-4 w-4" />} loading={busy === 'xlsx'} onClick={() => exp('xlsx')}>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<FileSpreadsheet className="h-4 w-4" />}
+            loading={busy === 'xlsx'}
+            disabled={busy !== null}
+            onClick={() => exp('xlsx')}
+          >
             XLSX
           </Button>
         </>
       }
     >
-      <p className="px-5 pt-3 text-xs text-muted">{r.subtitle}</p>
+      <p className="px-5 pt-3 text-xs text-muted">
+        {r.subtitle}
+      </p>
+
       {r.banners.map((b) => (
         <Alert key={b} tone="warning" className="mx-5 mt-3">
           {b}
         </Alert>
       ))}
+
       <div className="mt-3">
         <DataTable
           dense
           rows={r.rows}
           rowKey={(row) => JSON.stringify(row)}
           empty={<EmptyState title="No data for this report" />}
-          columns={r.columns.map((c) => ({ key: c.key, header: c.header, align: c.numeric ? 'right' : 'left', render: (row: Record<string, string | number | null>) => cell(c, row) }))}
+          columns={r.columns.map((c) => ({
+            key: c.key,
+            header: c.header,
+            align: c.numeric ? 'right' : 'left',
+            render: (
+              row: Record<string, string | number | null>,
+            ) => cell(c, row),
+          }))}
         />
+
         {r.totals && (
           <table className="w-full text-sm">
             <tbody>
               <tr className="border-t-2 border-primary/20 bg-mist/35 font-semibold">
                 {r.columns.map((c) => (
-                  <td key={c.key} className={`px-4 py-2 ${c.numeric ? 'text-right tabular-nums' : ''}`}>
-                    {c.numeric ? formatMoney(r.totals![c.key] as string) : r.totals![c.key]}
+                  <td
+                    key={c.key}
+                    className={`px-4 py-2 ${
+                      c.numeric ? 'text-right tabular-nums' : ''
+                    }`}
+                  >
+                    {c.numeric
+                      ? formatMoney(r.totals![c.key] as string)
+                      : r.totals![c.key]}
                   </td>
                 ))}
               </tr>
@@ -127,30 +245,101 @@ function ReportView({ path, filename }: { path: string; filename: string }) {
 }
 
 const REPORTS = [
-  { id: 'register', label: 'Monthly payroll register (all components)', path: (id: string) => `/reports/payroll-register${qs({ runId: id })}`, file: 'payroll-register' },
-  { id: 'summary', label: 'Monthly payroll summary', path: (id: string) => `/reports/monthly-summary${qs({ runId: id })}`, file: 'payroll-summary' },
-  { id: 'earnings', label: 'Earnings report', path: (id: string) => `/reports/components${qs({ runId: id, type: 'EARNING' })}`, file: 'earnings' },
-  { id: 'deductions', label: 'Deductions report', path: (id: string) => `/reports/components${qs({ runId: id, type: 'DEDUCTION' })}`, file: 'deductions' },
-  { id: 'net', label: 'Net payable report', path: (id: string) => `/reports/net-payable${qs({ runId: id })}`, file: 'net-payable' },
-  { id: 'statutory', label: 'Statutory deductions (PF, ESI, TDS)', path: (id: string) => `/reports/statutory${qs({ runId: id })}`, file: 'statutory' },
+  {
+    id: 'register',
+    label: 'Monthly payroll register (all components)',
+    path: (id: string) =>
+      `/reports/payroll-register${qs({ runId: id })}`,
+    file: 'payroll-register',
+  },
+  {
+    id: 'summary',
+    label: 'Monthly payroll summary',
+    path: (id: string) =>
+      `/reports/monthly-summary${qs({ runId: id })}`,
+    file: 'payroll-summary',
+  },
+  {
+    id: 'earnings',
+    label: 'Earnings report',
+    path: (id: string) =>
+      `/reports/components${qs({ runId: id, type: 'EARNING' })}`,
+    file: 'earnings',
+  },
+  {
+    id: 'deductions',
+    label: 'Deductions report',
+    path: (id: string) =>
+      `/reports/components${qs({ runId: id, type: 'DEDUCTION' })}`,
+    file: 'deductions',
+  },
+  {
+    id: 'net',
+    label: 'Net payable report',
+    path: (id: string) =>
+      `/reports/net-payable${qs({ runId: id })}`,
+    file: 'net-payable',
+  },
+  {
+    id: 'statutory',
+    label: 'Statutory deductions (PF, ESI, TDS)',
+    path: (id: string) =>
+      `/reports/statutory${qs({ runId: id })}`,
+    file: 'statutory',
+  },
+  {
+    id: 'epfo',
+    label: 'EPFO ECR preview',
+    path: (id: string) =>
+      `/epfo/payroll-runs/${id}/preview`,
+    file: 'epfo-ecr',
+  },
 ];
 
 function RunReports() {
-  const runs = useQuery({ queryKey: ['runs', 'reportable'], queryFn: () => get<Page<RunSummary>>(`/payroll-runs${qs({ pageSize: 60, sortBy: 'period', sortDir: 'desc' })}`) });
-  const usable = (runs.data?.items ?? []).filter((r) => r.status !== 'DRAFT');
+  const runs = useQuery({
+    queryKey: ['runs', 'reportable'],
+    queryFn: () =>
+      get<Page<RunSummary>>(
+        `/payroll-runs${qs({
+          pageSize: 60,
+          sortBy: 'period',
+          sortDir: 'desc',
+        })}`,
+      ),
+  });
+
+  const usable = (runs.data?.items ?? []).filter(
+    (r) => r.status !== 'DRAFT',
+  );
+
   const [runId, setRunId] = useState('');
   const [report, setReport] = useState('summary');
+
   useEffect(() => {
-    if (!runId && usable.length) setRunId((usable.find((r) => r.status === 'FINALISED') ?? usable[0]).id);
+    if (!runId && usable.length) {
+      setRunId(
+        (usable.find((r) => r.status === 'FINALISED') ?? usable[0]).id,
+      );
+    }
   }, [usable, runId]);
+
   const def = REPORTS.find((r) => r.id === report)!;
+
   return (
     <div className="space-y-6">
       <Card>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Payroll month" htmlFor="run">
-            <Select id="run" value={runId} onChange={(e) => setRunId(e.target.value)}>
-              {!usable.length && <option value="">No calculated payroll yet</option>}
+            <Select
+              id="run"
+              value={runId}
+              onChange={(e) => setRunId(e.target.value)}
+            >
+              {!usable.length && (
+                <option value="">No calculated payroll yet</option>
+              )}
+
               {usable.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.period} — {r.status.replace('_', ' ').toLowerCase()}
@@ -158,8 +347,13 @@ function RunReports() {
               ))}
             </Select>
           </Field>
+
           <Field label="Report" htmlFor="rep">
-            <Select id="rep" value={report} onChange={(e) => setReport(e.target.value)}>
+            <Select
+              id="rep"
+              value={report}
+              onChange={(e) => setReport(e.target.value)}
+            >
               {REPORTS.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.label}
@@ -169,7 +363,349 @@ function RunReports() {
           </Field>
         </div>
       </Card>
-      {runId ? <ReportView path={def.path(runId)} filename={def.file} /> : <Card><EmptyState title="Calculate a payroll run to see reports" /></Card>}
+
+      {report === 'epfo' ? (
+        <EpfoEcrReport />
+      ) : runId ? (
+        <ReportView
+          path={def.path(runId)}
+          filename={def.file}
+        />
+      ) : (
+        <Card>
+          <EmptyState title="Calculate a payroll run to see reports" />
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function EpfoEcrReport() {
+  const [runId, setRunId] = useState('');
+  const [exporting, setExporting] = useState<'pdf' | 'xlsx' | null>(
+    null,
+  );
+
+  const toast = useToast();
+
+  const runs = useQuery({
+    queryKey: ['epfo', 'payroll-runs'],
+    queryFn: () => get<EpfoPayrollRun[]>('/epfo/payroll-runs'),
+  });
+
+  const usableRuns = runs.data ?? [];
+
+  useEffect(() => {
+    if (!runId && usableRuns.length > 0) {
+      setRunId(usableRuns[0].id);
+    }
+  }, [usableRuns, runId]);
+
+  const preview = useQuery({
+    queryKey: ['epfo', 'preview', runId],
+    queryFn: () =>
+      get<EpfoPreview>(
+        `/epfo/payroll-runs/${runId}/preview`,
+      ),
+    enabled: Boolean(runId),
+  });
+
+  const exportPreview = async (format: 'pdf' | 'xlsx') => {
+    if (!runId || !preview.data || exporting !== null) return;
+
+    setExporting(format);
+
+    try {
+      const period =
+        `${preview.data.payrollRun.year}-${String(
+          preview.data.payrollRun.month,
+        ).padStart(2, '0')}`;
+
+      await download(
+        `/epfo/payroll-runs/${runId}/export?format=${format}`,
+        `epfo-ecr-preview-${period}.${format}`,
+      );
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card title="EPFO Electronic Challan-cum-Return">
+        <p className="mb-4 text-sm text-muted">
+          Preview EPFO statutory information for a finalised payroll month.
+        </p>
+
+        <Field label="Finalised payroll month" htmlFor="epfo-run">
+          <Select
+            id="epfo-run"
+            value={runId}
+            onChange={(e) => setRunId(e.target.value)}
+          >
+            {!usableRuns.length && (
+              <option value="">No finalised payroll runs available</option>
+            )}
+
+            {usableRuns.map((r) => (
+              <option key={r.id} value={r.id}>
+                {new Date(
+                  r.year,
+                  r.month - 1,
+                ).toLocaleString('en-IN', {
+                  month: 'long',
+                  year: 'numeric',
+                })}
+                {' — '}
+                {r.status.replace('_', ' ').toLowerCase()}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {runs.isLoading && <Spinner />}
+
+        {runs.error && (
+          <div className="mt-4">
+            <ErrorState
+              message={errorMessage(runs.error)}
+              onRetry={() => runs.refetch()}
+            />
+          </div>
+        )}
+
+        {!runs.isLoading &&
+          !runs.error &&
+          usableRuns.length === 0 && (
+            <div className="mt-4">
+              <EmptyState title="No finalised payroll runs are available for EPFO ECR." />
+            </div>
+          )}
+      </Card>
+
+      {runId && (
+        <>
+          {preview.isLoading && <Spinner />}
+
+          {preview.error && (
+            <ErrorState
+              message={errorMessage(preview.error)}
+              onRetry={() => preview.refetch()}
+            />
+          )}
+
+          {preview.data && (
+            <>
+              <Card
+                title="ECR preview summary"
+                actions={
+                  <>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<FileDown className="h-4 w-4" />}
+                      loading={exporting === 'pdf'}
+                      disabled={
+                        exporting !== null ||
+                        preview.data.records.length === 0
+                      }
+                      onClick={() => void exportPreview('pdf')}
+                    >
+                      PDF
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<FileSpreadsheet className="h-4 w-4" />}
+                      loading={exporting === 'xlsx'}
+                      disabled={
+                        exporting !== null ||
+                        preview.data.records.length === 0
+                      }
+                      onClick={() => void exportPreview('xlsx')}
+                    >
+                      Excel
+                    </Button>
+                  </>
+                }
+              >
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs text-muted">
+                      Payroll period
+                    </p>
+                    <p className="font-semibold">
+                      {new Date(
+                        preview.data.payrollRun.year,
+                        preview.data.payrollRun.month - 1,
+                      ).toLocaleString('en-IN', {
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-muted">
+                      Employee records
+                    </p>
+                    <p className="font-semibold">
+                      {preview.data.recordCount}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-muted">
+                      Validation warnings
+                    </p>
+                    <p className="font-semibold">
+                      {preview.data.warningCount}
+                    </p>
+                  </div>
+                </div>
+
+                <Alert tone="warning" className="mt-4">
+                  {preview.data.message}
+                </Alert>
+
+                <p className="mt-3 text-xs font-semibold text-warning">
+                  PREVIEW — NOT AN OFFICIAL EPFO FILING
+                </p>
+              </Card>
+
+              <Card
+                title="Employee ECR records"
+                padded={false}
+              >
+                {preview.data.records.length === 0 ? (
+                  <EmptyState title="No employee records found for this payroll run." />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-mist/35 text-left">
+                          <th className="px-4 py-3">Employee</th>
+                          <th className="px-4 py-3">UAN</th>
+                          <th className="px-4 py-3 text-right">
+                            Gross wages
+                          </th>
+                          <th className="px-4 py-3 text-right">
+                            EPF wages
+                          </th>
+                          <th className="px-4 py-3 text-right">
+                            Employee PF
+                          </th>
+                          <th className="px-4 py-3 text-right">
+                            Employer PF
+                          </th>
+                          <th className="px-4 py-3">
+                            Validation
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {preview.data.records.map((record) => (
+                          <tr
+                            key={record.employeeId}
+                            className="border-b"
+                          >
+                            <td className="px-4 py-3">
+                              <div className="font-medium">
+                                {record.memberName}
+                              </div>
+                              <div className="text-xs text-muted">
+                                {record.employeeCode}
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-3">
+                              {record.uan || 'Missing'}
+                            </td>
+
+                            <td className="px-4 py-3 text-right">
+                              {record.grossWages ?? '—'}
+                            </td>
+
+                            <td className="px-4 py-3 text-right">
+                              {record.epfWages ?? '—'}
+                            </td>
+
+                            <td className="px-4 py-3 text-right">
+                              {record.employeePfContribution ?? '—'}
+                            </td>
+
+                            <td className="px-4 py-3 text-right">
+                              {record.employerPfContribution ?? '—'}
+                            </td>
+
+                            <td className="px-4 py-3">
+                              {record.warnings.length === 0 ? (
+                                <span className="text-xs font-medium">
+                                  No warnings
+                                </span>
+                              ) : (
+                                <span className="text-xs font-medium text-warning">
+                                  {record.warnings.length} warning(s)
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+
+              <Card title="Validation details">
+                {preview.data.records.map((record) => (
+                  <div
+                    key={record.employeeId}
+                    className="border-b py-3 last:border-b-0"
+                  >
+                    <p className="font-medium">
+                      {record.employeeCode} — {record.memberName}
+                    </p>
+
+                    {record.warnings.length === 0 ? (
+                      <p className="mt-1 text-sm">
+                        No validation warnings.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
+                        {record.warnings.map((warning, index) => (
+                          <li key={`${record.employeeId}-${index}`}>
+                            {warning}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </Card>
+
+              <Card title="ECR file generation">
+                <Alert tone="warning">
+                  Official ECR generation is currently disabled.
+                  This screen provides a preview using the currently
+                  available payroll information. The preview is not
+                  an official EPFO upload file.
+                </Alert>
+
+                <div className="mt-4">
+                  <Button disabled>
+                    Generate EPFO ECR TXT
+                  </Button>
+                </div>
+              </Card>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -178,18 +714,38 @@ function EmployeeStatement() {
   const [search, setSearch] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [year, setYear] = useState('');
-  const emps = useQuery({ queryKey: ['employees', 'picker', search], queryFn: () => get<Page<Employee>>(`/employees${qs({ search, pageSize: 50 })}`) });
+
+  const emps = useQuery({
+    queryKey: ['employees', 'picker', search],
+    queryFn: () =>
+      get<Page<Employee>>(
+        `/employees${qs({ search, pageSize: 50 })}`,
+      ),
+  });
+
   const thisYear = new Date().getFullYear();
+
   return (
     <div className="space-y-6">
       <Card>
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Find employee" htmlFor="es">
-            <Input id="es" placeholder="ID or name" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              id="es"
+              placeholder="ID or name"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </Field>
+
           <Field label="Employee" htmlFor="ep">
-            <Select id="ep" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+            <Select
+              id="ep"
+              value={employeeId}
+              onChange={(e) => setEmployeeId(e.target.value)}
+            >
               <option value="">Choose…</option>
+
               {emps.data?.items.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.employeeCode} — {e.fullName}
@@ -197,10 +753,19 @@ function EmployeeStatement() {
               ))}
             </Select>
           </Field>
+
           <Field label="Year" htmlFor="ey">
-            <Select id="ey" value={year} onChange={(e) => setYear(e.target.value)}>
+            <Select
+              id="ey"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+            >
               <option value="">All periods</option>
-              {Array.from({ length: 5 }, (_, i) => thisYear - i).map((y) => (
+
+              {Array.from(
+                { length: 5 },
+                (_, i) => thisYear - i,
+              ).map((y) => (
                 <option key={y} value={y}>
                   {y}
                 </option>
@@ -209,7 +774,20 @@ function EmployeeStatement() {
           </Field>
         </div>
       </Card>
-      {employeeId ? <ReportView path={`/reports/employee-statement${qs({ employeeId, year })}`} filename="salary-statement" /> : <Card><EmptyState title="Choose an employee to see the month-by-month statement" /></Card>}
+
+      {employeeId ? (
+        <ReportView
+          path={`/reports/employee-statement${qs({
+            employeeId,
+            year,
+          })}`}
+          filename="salary-statement"
+        />
+      ) : (
+        <Card>
+          <EmptyState title="Choose an employee to see the month-by-month statement" />
+        </Card>
+      )}
     </div>
   );
 }
